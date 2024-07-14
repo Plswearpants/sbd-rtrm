@@ -19,7 +19,7 @@ A0 = proj2oblique(randn(k));
 m = [64 64];            % image size for each slice / observation grid
 
 %   Each pixel has probability theta of being a kernel location
-theta = 3e-2;           % activation concentration
+theta = 3e-3;           % activation concentration
 eta = 1e-3;             % additive noise variance
 
 % GENERATE

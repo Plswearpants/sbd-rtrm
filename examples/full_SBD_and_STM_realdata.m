@@ -4,20 +4,45 @@ clc; clear;
 run('../init_sbd');
 fprintf('\n\n');
 
+%% 0. Load the .3ds data
+
+% INPUTS
+% 1: Data file to load, including file type ('QPI.3ds' for example)
+% 2: Smoothing sigma for current data
+
+% OUTPUTS
+% header: Variable containing all experimental parameters
+% I: Current data, smoothed by sigma
+% dIdV: Numerically differentiated current data
+% voltage: Vector of voltages for current
+% midV: Vector on voltages for dIdV/QPI (midpoint of voltage vector)
+% QPI: Fourier transformed dIdV data
+
+% Modified function load3dsall from supplied matlab code from Nanonis
+[header, par, I, dIdV, LockindIdV, bias, midV, QPI, LockinQPI] = load3dsall('Grid_20210906_HR_CZ.3ds', 5);
+xsize = header.grid_dim(1);
+ysize = header.grid_dim(2);
+elayer = header.points;
+estart = par(1);
+eend = par(2);
+%% 0.1 Slice selection
+d3gridDisplay(dIdV,'dynamic');
+selected_slice = input('Enter the slice number you want to analyze: ');
 %% I. SIMULATE DATA FOR SBD:
 %  =========================
 
 %% 1. Kernel settings - see kernel types below
 kerneltype = 'simulated_STM';   
 n = 1;               	% number of kernel slices
-k = [31 31];           	% kernel size
+k = squareDrawSize(dIdV(:,:,selected_slice));           	% determine kernel size
 
-%% 2. Activation map settings:
-m = [200 200];          % image size for each slice / observation grid
+%% 2. Activation map generation:
+% Generate activation map based on the sliced data
+X0=activationCreateClick(dIdV(:,:,40));
 
-%   Each pixel has probability theta of being a kernel location
-theta = 4e-4;           % activation concentration
-eta = 1e-4;             % additive noise variance
+m = size(X0);          % image size for each slice / observation grid
+
+eta = estimate_noise(dIdV(:,:,selected_slice));             % additive noise variance
 
 %% 3. Generate kernel
 switch kerneltype
@@ -41,16 +66,6 @@ end
 
 % Need to put each slice back onto the sphere
 A0 = proj2oblique(A0);
-
-%% 4.1 Simulate activation map:
-% Generate activation map
-X0_good = false;
-while ~X0_good
-    X0 = double(rand(m) <= theta);      % activations are on / off
-    X0_good = sum(X0(:) ~= 0) > 0;
-end
-%% 4.2 Simulate activation map from exisiting dIdV:
-X0=activationCreateClick(dIdV(:,:,40));
 
 %% 5 observation generation:
 Y = zeros([m n]);
