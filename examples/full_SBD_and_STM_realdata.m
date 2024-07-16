@@ -33,31 +33,35 @@ selected_slice = input('Enter the slice number you want to analyze: ');
 
 %% 1. Kernel settings - see kernel types below
 kerneltype = 'simulated_STM';   
-n = 1;               	% number of kernel slices
-k = squareDrawSize(dIdV(:,:,selected_slice));           	% determine kernel size
-
+n = 5;               	% number of kernel slices
+[square_size,position, mask] = squareDrawSize(dIdV(:,:,selected_slice));           	% determine kernel size
+[kernal_data, ~] = gridCropMask(dIdV(:,:,selected_slice), mask);           % the cropped real data as kernal(wishlist, could act as initial kernal in the iteration process)
 %% 2. Activation map generation:
 % Generate activation map based on the sliced data
-X0=activationCreateClick(dIdV(:,:,40));
+X0=activationCreateClick(dIdV(:,:,selected_slice));
 
 m = size(X0);          % image size for each slice / observation grid
 
-eta = estimate_noise(dIdV(:,:,selected_slice));             % additive noise variance
+%% noise level determination 
+eta_data = estimate_noise(dIdV(:,:,selected_slice),'std');  
+SNR_data= var(kernal_data(:))/eta_data;
+fprintf('SNR_data = %d', SNR_data);
+SNR_sim=SNR_data;
 
-%% 3. Generate kernel
+%% 3. Generate kernel and associated eta
 switch kerneltype
     case 'random'
     % Randomly generate n kernel slices
-        A0 = randn([k n]);
+        A0 = randn([square_size n]);
     
     case 'simulated_STM'
     % Randomly choose n kernel slices from simulated LDoS data
         load('example_data/LDoS_sim.mat');
         sliceidx = randperm(size(LDoS_sim,3), n);
         
-        A0 = NaN([k n]);
+        A0 = NaN([square_size n]);
         for i = 1:n
-            A0 = imresize(LDoS_sim(:,:,sliceidx), k);
+            A0 = imresize(LDoS_sim(:,:,sliceidx), square_size);
         end
         
     otherwise
@@ -67,25 +71,30 @@ end
 % Need to put each slice back onto the sphere
 A0 = proj2oblique(A0);
 
+% eta in the simulation
+eta_sim=var(A0(:))/SNR_sim;
+
 %% 5 observation generation:
 Y = zeros([m n]);
 for i = 1:n                           	% observation
     Y(:,:,i) = convfft2(A0(:,:,i), X0);     
 end
-Y = Y + sqrt(eta)*randn([m n]);
-
+Y = Y + sqrt(eta_sim)*randn([m n]);
+%figure;
+%imagesc(Y)
 %% II. Sparse Blind Deconvolution:
 %  ===============================
 %% 1. Settings - refer to documents on details for setting parameters.
 
 % A function for showing updates as RTRM runs
-dispfun = @( Y, A, X, k, kplus, idx ) showims(Y,A0,X0,A,X,k,kplus,idx);
+figure;
+dispfun = @( Y, A, X, square_size, kplus, idx ) showims(Y,A0,X0,A,X,square_size,kplus,idx);
 
 % SBD settings
 params.lambda1 = 1e-1;              % regularization parameter for Phase I
 
 params.phase2 = true;               % whether to do Phase II (refinement)
-params.kplus = ceil(0.2 * k);       % padding for sphere lifting
+params.kplus = ceil(0.5 * square_size);       % padding for sphere lifting
 params.lambda2 = 5e-2;              % FINAL reg. param. value for Phase II
 params.nrefine = 3;                 % number of refinements
 
@@ -96,4 +105,10 @@ params.getbias  = true;
 params.Xsolve = 'FISTA';
 
 % 2. The fun part
-[Aout, Xout, extras] = SBD( Y, k, params, dispfun );
+[Aout, Xout, extras] = SBD( Y, square_size, params, dispfun );
+
+% Save the result
+save('SBD-STM.mat', 'Y', 'X0', 'A0', 'Xout', 'Aout', 'sliceidx');
+
+%% Visualization 
+showims(Y,A0,X0,Aout,Xout,square_size,[],5)
