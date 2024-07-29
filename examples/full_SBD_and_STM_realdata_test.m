@@ -74,7 +74,7 @@ A0 = proj2oblique(A0);
 % eta in the simulation
 eta_sim=var(A0(:))/SNR_sim;
 
-%% 5 observation generation:
+%% 4 observation generation:
 Y = zeros([m n]);
 for i = 1:n                           	% observation
     Y(:,:,i) = convfft2(A0(:,:,i), X0);     

@@ -27,6 +27,7 @@ function [ Aout, Xout, bout, extras ] = SBD_test( Y, k, params, dispfun, kernal_
 %           when running XSolve.
 %
 %       getbias,  bool       : Extract constant bias from observation.
+%                                                                                                                      
 %
 
 
