@@ -42,7 +42,7 @@ X0=activationCreateClick(dIdV(:,:,selected_slice));
 
 m = size(X0);          % image size for each slice / observation grid
 
-%% noise level determination 
+%% normal noise level determination 
 eta_data = estimate_noise(dIdV(:,:,selected_slice),'std');  
 SNR_data= var(kernal_data(:))/eta_data;
 fprintf('SNR_data = %d', SNR_data);
@@ -82,6 +82,13 @@ end
 Y = Y + sqrt(eta_sim)*randn([m n]);
 %figure;
 %imagesc(Y)
+%% add streak noise level determination 
+eta_streak_data = estimate_noise(dIdV(:,:,selected_slice),'std');  
+SNR_streak_data= var(kernal_data(:))/eta_streak_data;
+variance_streak_normalized = var(A0(:))/SNR_streak_data;
+[streak_noise_matrix, noise_avg, comment] = generate_periodic_noise(size(X0,1), 0, 60, 60, variance_streak_normalized);
+Y=Y+streak_noise_matrix;
+
 %% II. Sparse Blind Deconvolution:
 %  ===============================
 %% 1. Settings - refer to documents on details for setting parameters.
@@ -111,4 +118,5 @@ params.Xsolve = 'FISTA';
 save('SBD-STM.mat', 'Y', 'X0', 'A0', 'Xout', 'Aout', 'sliceidx');
 
 %% Visualization 
-showims(Y,A0,X0,Aout,Xout,square_size,[],5)
+figure();
+showims(Y,A0,X0,Aout,Xout,square_size,[],1)
