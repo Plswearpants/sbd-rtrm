@@ -119,4 +119,4 @@ save('SBD-STM.mat', 'Y', 'X0', 'A0', 'Xout', 'Aout', 'sliceidx');
 
 %% Visualization 
 figure();
-showims(Y,A0,X0,Aout,Xout,square_size,[],1)
+showims(Y,A0,X0,Aout,Xout,square_size,[],5)
