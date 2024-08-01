@@ -25,7 +25,7 @@ ysize = header.grid_dim(2);
 elayer = header.points;
 estart = par(1);
 eend = par(2);
-%% 0.1 Data data normalization 
+%% 0.1 Data normalization 
 A0 = proj2oblique(A0);
 %% 0.1 Slice selection
 d3gridDisplay(dIdV,'dynamic');
@@ -35,9 +35,9 @@ selected_slice = input('Enter the slice number you want to analyze: ');
 
 %% 1. Kernel settings - see kernel types below
 kerneltype = 'simulated_STM';   
-n = 5;               	% number of kernel slices
+n = 1;               	% number of kernel slices
 [square_size,position, mask] = squareDrawSize(dIdV(:,:,selected_slice));           	% determine kernel size
-[kernal_data, ~] = gridCropMask(dIdV(:,:,selected_slice), mask);           % the cropped real data as kernal(wishlist, could act as initial kernal in the iteration process)
+[kernel_data, ~] = gridCropMask(dIdV(:,:,selected_slice), mask);           % the cropped real data as kernel(wishlist, could act as initial kernel in the iteration process)
 %% 2. Activation map generation:
 % Generate activation map based on the sliced data
 X0=activationCreateClick(dIdV(:,:,selected_slice));
@@ -46,7 +46,7 @@ m = size(X0);          % image size for each slice / observation grid
 
 %% noise level determination 
 eta_data = estimate_noise(dIdV(:,:,selected_slice),'std');  
-SNR_data= var(kernal_data(:))/eta_data;
+SNR_data= var(kernel_data(:))/eta_data;
 fprintf('SNR_data = %d', SNR_data);
 SNR_sim=SNR_data;
 
@@ -92,8 +92,8 @@ Y = Y + sqrt(eta_sim)*randn([m n]);
 figure;
 dispfun = @( Y, A, X, square_size, kplus, idx ) showims(Y,A,X,A,X,square_size,kplus,idx);
 %% 2. Parameter sets and SBD run 
-square_size= [59,59];
-Y= dIdV(:,:,46);
+
+Y= dIdV_masked(:,:,selected_slice);
 Y = proj2oblique(Y); % normalize Y 
 
 % SBD settings
@@ -111,10 +111,10 @@ params.getbias  = true;
 params.Xsolve = 'FISTA';
 
 % 2. The fun part
-[Aout, Xout, extras] = SBD_test( Y, square_size, params, dispfun, kernal_data );
+[Aout, Xout, extras] = SBD_test( Y, square_size, params, dispfun, kernel_data );
 
 % Save the result
-save('SBD-STM_testrun_singleslice.mat', 'Y', 'Xout', 'Aout','extras');
+save('SBD-STM_testrun_singleslice_nostreak.mat', 'Y', 'Xout', 'Aout','extras');
 
 %% Visualization 
-showims(Y,A0,X0,Aout,Xout,square_size,[],5)
+showims(Y,kernel_data,Xout,Aout,Xout,square_size,[],1)

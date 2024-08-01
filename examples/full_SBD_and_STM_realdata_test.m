@@ -26,7 +26,7 @@ elayer = header.points;
 estart = par(1);
 eend = par(2);
 %% 0.1 Slice selection
-d3gridDisplay(dIdV,'dynamic');
+d3gridDisplay(dIdV_masked,'dynamic');
 selected_slice = input('Enter the slice number you want to analyze: ');
 %% I. SIMULATE DATA FOR SBD:
 %  =========================
