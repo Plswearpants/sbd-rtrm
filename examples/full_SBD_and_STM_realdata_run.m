@@ -19,7 +19,7 @@ fprintf('\n\n');
 % QPI: Fourier transformed dIdV data
 
 % Modified function load3dsall from supplied matlab code from Nanonis
-[header, par, I, dIdV, LockindIdV, bias, midV, QPI, LockinQPI] = load3dsall('Grid_20210906_HR_CZ.3ds', 5);
+[header, par, I, dIdV, LockindIdV, bias, midV, QPI, LockinQPI] = load3dsall('Grid_20221107_HR_FF&CS.3ds', 5);
 xsize = header.grid_dim(1);
 ysize = header.grid_dim(2);
 elayer = header.points;
@@ -93,15 +93,15 @@ figure;
 dispfun = @( Y, A, X, square_size, kplus, idx ) showims(Y,A,X,A,X,square_size,kplus,idx);
 %% 2. Parameter sets and SBD run 
 
-Y= dIdV_masked(:,:,selected_slice);
+Y= dIdV(:,:,selected_slice);
 Y = proj2oblique(Y); % normalize Y 
 
 % SBD settings
-params.lambda1 = 0.5;              % regularization parameter for Phase I
+params.lambda1 = 0.1;              % regularization parameter for Phase I
 
 params.phase2 = true;               % whether to do Phase II (refinement)
 params.kplus = ceil(0.5 * square_size);       % padding for sphere lifting
-params.lambda2 = 0.1;              % FINAL reg. param. value for Phase II
+params.lambda2 = 0.05;              % FINAL reg. param. value for Phase II
 params.nrefine = 3;                 % number of refinements
 
 % Want entries of X to be nonnegative: see SBD_main.m

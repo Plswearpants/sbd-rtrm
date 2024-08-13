@@ -26,7 +26,7 @@ elayer = header.points;
 estart = par(1);
 eend = par(2);
 %% 0.1 Slice selection
-d3gridDisplay(dIdV_masked,'dynamic');
+d3gridDisplay(dIdV,'dynamic');
 selected_slice = input('Enter the slice number you want to analyze: ');
 %% I. SIMULATE DATA FOR SBD:
 %  =========================
@@ -117,6 +117,10 @@ params.Xsolve = 'FISTA';
 % Save the result
 save('SBD-STM.mat', 'Y', 'X0', 'A0', 'Xout', 'Aout', 'sliceidx');
 
-%% Visualization 
+%% Visualization I
 figure();
 showims(Y,A0,X0,Aout,Xout,square_size,[],5)
+%% Visualization II
+figure();
+showims_fft(Y,A0,X0,Aout,Xout,square_size,[],5,1)
+
