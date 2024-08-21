@@ -19,33 +19,32 @@ fprintf('\n\n');
 % QPI: Fourier transformed dIdV data
 
 % Modified function load3dsall from supplied matlab code from Nanonis
-[header, par, I, dIdV, LockindIdV, bias, midV, QPI, LockinQPI] = load3dsall('Grid_20221107_HR_FF&CS.3ds', 5);
+[header, par, I, dIdV, LockindIdV, bias, midV, QPI, LockinQPI] = load3dsall('Stephanie_Grid Spectroscopy006.3ds', 5);
 xsize = header.grid_dim(1);
 ysize = header.grid_dim(2);
 elayer = header.points;
 estart = par(1);
 eend = par(2);
-%% 0.1 Data normalization 
-A0 = proj2oblique(A0);
 %% 0.1 Slice selection
-d3gridDisplay(dIdV,'dynamic');
+target_data= cropped_data;
+d3gridDisplay(target_data,'dynamic');
 selected_slice = input('Enter the slice number you want to analyze: ');
 %% I. SIMULATE DATA FOR SBD:
 %  =========================
 
 %% 1. Kernel settings - see kernel types below
-kerneltype = 'simulated_STM';   
+kerneltype = 'random';   
 n = 1;               	% number of kernel slices
-[square_size,position, mask] = squareDrawSize(dIdV(:,:,selected_slice));           	% determine kernel size
-[kernel_data, ~] = gridCropMask(dIdV(:,:,selected_slice), mask);           % the cropped real data as kernel(wishlist, could act as initial kernel in the iteration process)
+[square_size,position, mask] = squareDrawSize(target_data(:,:,selected_slice));           	% determine kernel size
+[kernel_data, ~] = gridCropMask(target_data(:,:,selected_slice), mask);           % the cropped real data as kernel(wishlist, could act as initial kernel in the iteration process)
 %% 2. Activation map generation:
 % Generate activation map based on the sliced data
-X0=activationCreateClick(dIdV(:,:,selected_slice));
+X0=activationCreateClick(target_data(:,:,selected_slice));
 
 m = size(X0);          % image size for each slice / observation grid
 
 %% noise level determination 
-eta_data = estimate_noise(dIdV(:,:,selected_slice),'std');  
+eta_data = estimate_noise(target_data(:,:,selected_slice),'std');  
 SNR_data= var(kernel_data(:))/eta_data;
 fprintf('SNR_data = %d', SNR_data);
 SNR_sim=SNR_data;
@@ -76,14 +75,7 @@ A0 = proj2oblique(A0);
 % eta in the simulation
 eta_sim=var(A0(:))/SNR_sim;
 
-%% 5 observation generation:
-Y = zeros([m n]);
-for i = 1:n                           	% observation
-    Y(:,:,i) = convfft2(A0(:,:,i), X0);     
-end
-Y = Y + sqrt(eta_sim)*randn([m n]);
-%figure;
-%imagesc(Y)
+
 %% II. Sparse Blind Deconvolution:
 %  ===============================
 %% 1. Settings - refer to documents on details for setting parameters.
@@ -91,11 +83,13 @@ Y = Y + sqrt(eta_sim)*randn([m n]);
 % A function for showing updates as RTRM runs
 figure;
 dispfun = @( Y, A, X, square_size, kplus, idx ) showims(Y,A,X,A,X,square_size,kplus,idx);
-%% 2. Parameter sets and SBD run 
-
-Y= dIdV(:,:,selected_slice);
+%% 2.0 Define the observation
+Y= target_data(:,:,selected_slice);
+%% 2.1 level the noise (if needed)
+Y= levelNoiseInteractive(target_data(:,:,selected_slice),'x');
+%% 2.2 normalize the observation
 Y = proj2oblique(Y); % normalize Y 
-
+%% 3 parameter setting and SBD run
 % SBD settings
 params.lambda1 = 0.1;              % regularization parameter for Phase I
 
@@ -111,10 +105,15 @@ params.getbias  = true;
 params.Xsolve = 'FISTA';
 
 % 2. The fun part
-[Aout, Xout, extras] = SBD_test( Y, square_size, params, dispfun, kernel_data );
+%[Aout, Xout, extras] = SBD_test( Y, square_size, params, dispfun, A0 );
+[Aout, Xout, extras] = SBD( Y, square_size, params, dispfun );
 
 % Save the result
-save('SBD-STM_testrun_singleslice_nostreak.mat', 'Y', 'Xout', 'Aout','extras');
+save('SBD-STM_testrun_singleslice_streak_leveled.mat', 'Y', 'Xout', 'Aout','extras','square_size');
 
 %% Visualization 
 showims(Y,kernel_data,Xout,Aout,Xout,square_size,[],1)
+
+%% Visualization II
+figure();
+showims_fft(Y,kernel_data,Xout,Aout,Xout,square_size,[],1)

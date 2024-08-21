@@ -115,12 +115,11 @@ params.Xsolve = 'FISTA';
 [Aout, Xout, extras] = SBD( Y, square_size, params, dispfun );
 
 % Save the result
-save('SBD-STM.mat', 'Y', 'X0', 'A0', 'Xout', 'Aout', 'sliceidx');
+save('SBD-STM.mat', 'Y', 'X0', 'A0', 'Xout', 'Aout', 'sliceidx', 'square_size');
 
 %% Visualization I
 figure();
 showims(Y,A0,X0,Aout,Xout,square_size,[],5)
 %% Visualization II
 figure();
-showims_fft(Y,A0,X0,Aout,Xout,square_size,[],5,1)
-
+showims_fft(Y,A0,X0,Aout,Xout,square_size,[],2,1)
