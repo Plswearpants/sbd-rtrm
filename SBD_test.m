@@ -1,4 +1,4 @@
-function [ Aout, Xout, bout, extras ] = SBD_test( Y, k, params, dispfun, kernel_data )
+function [ A_phase_I, Aout, Xout, bout, extras ] = SBD_test( Y, k, params, dispfun, kernel_data )
 %SBD Summary of this function goes here
 %
 %   PARAMS STRUCT:
@@ -28,8 +28,6 @@ function [ Aout, Xout, bout, extras ] = SBD_test( Y, k, params, dispfun, kernel_
 %
 %       getbias,  bool       : Extract constant bias from observation.
 %                                                                                                                      
-%
-
 
 %% Process input arguments
 starttime = tic;
@@ -76,7 +74,7 @@ extras.phase1.A = A;
 extras.phase1.X = Xsol.X;
 extras.phase1.b = Xsol.b;
 extras.phase1.info = info;
-
+A_phase_I = A ;
 %% PHASE II: Lift the sphere and do lambda continuation
 if params.phase2
     k2 = k + 2*kplus;

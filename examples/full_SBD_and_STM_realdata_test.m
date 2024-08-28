@@ -121,5 +121,5 @@ save('SBD-STM.mat', 'Y', 'X0', 'A0', 'Xout', 'Aout', 'sliceidx', 'square_size');
 figure();
 showims(Y,A0,X0,Aout,Xout,square_size,[],5)
 %% Visualization II
-figure();
-showims_fft(Y,A0,X0,Aout,Xout,square_size,[],2,1)
+square_size=[size(Aout,1),size(Aout,1)];
+showims_fft(Y,A0,X0,Aout,Xout,square_size,[],4,1)

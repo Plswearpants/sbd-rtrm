@@ -13,7 +13,7 @@ function showims_fft(Y, A0, X0, A, X, k, kplus, idx, saveImage)
     subplot(3, 3, 2); imagesc(Y_hat); title('Recovered Y'); axis square;
     subplot(3, 3, 3); imagesc(abs(fftshift(fft2(Y(:,:,idx) - mean(mean(Y(:,:,idx))))))); title('original Y FFT'); axis square;
 
-    subplot(3, 3, 4); imagesc(abs(A0(:,:,idx))); title('groundtruth Kernel'); axis square;
+    subplot(3, 3, 4); imagesc(abs(A0(:,:,idx))); title('Initial Kernel'); axis square;
     subplot(3, 3, 5); imagesc(abs(A(:,:,idx))); title('recovered Kernel'); axis square;
     subplot(3, 3, 6); imagesc(abs(fftshift(fft2(A(:,:,idx) - mean(mean(A(:,:,idx))))))); title('recovered Kernel FFT'); axis square;
 
@@ -25,9 +25,9 @@ function showims_fft(Y, A0, X0, A, X, k, kplus, idx, saveImage)
         X_hat = X;
     end
 
-    subplot(3, 3, 7); imagesc(abs(X0)); ylabel('abs(X)'); title('groundtruth activation map'); axis square;
+    subplot(3, 3, 7); imagesc(abs(X0)); ylabel('abs(X)'); title('recovered activation map'); axis square;
     subplot(3, 3, 8); imagesc(abs(X_hat)); title('recovered activation map'); axis square;
-    subplot(3, 3, 9); imagesc(abs(fftshift(fft2(A0(:,:,idx) - mean(mean(A0(:,:,idx))))))); title('groundtruth Kernel FFT'); axis square;
+    subplot(3, 3, 9); imagesc(abs(fftshift(fft2(A0(:,:,idx) - mean(mean(A0(:,:,idx))))))); title('initial Kernel FFT'); axis square;
 
     % Save the figure if saveImage is true
     if saveImage
