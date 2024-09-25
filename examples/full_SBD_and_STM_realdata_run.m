@@ -35,12 +35,18 @@ selected_slice = input('Enter the slice number you want to analyze: ');
 % change target data to single slice 
 target_data = dIdV(:,:,selected_slice);
 
-%% I.1 noise leveling 
+%% I.1Crop data
+mask= gridMaskSquare(target_data);
+target_data= gridCropMask(target_data, mask);
+imagesc(target_data);
+colormap("gray")
+axis square
+%% I.2 noise leveling 
 % noise level determination 
 eta_data = estimate_noise(target_data,'std');  
 target_data = levelNoiseInteractive(target_data,'x');
 
-%% I.2 data normalization
+%% I.3 data normalization
 target_data = normalizeBackgroundToZeroMean3D(target_data,rangetype); 
 
 %% I. SIMULATE DATA FOR SBD:
@@ -48,6 +54,9 @@ target_data = normalizeBackgroundToZeroMean3D(target_data,rangetype);
 
 %% ~~~~~~~~~~~Initialize Kernel guess - see kernel types below~~~~~~~~~~~~~
 
+%% define square_size
+% draw square on the data to include as many visible ripples of the scattering as possible 
+[square_size] = squareDrawSize(target_data);
 %% Initialize as random kernel 
 kerneltype = 'random';   
 n = 1;               	% number of kernel slices
@@ -76,7 +85,7 @@ A0 = NaN([square_size n]);
 A0 = proj2oblique(A0);
         
     
-%% 2. Activation map generation:
+%% (Opt) Activation map generation:
 % Generate activation map based on the sliced data
 X0=activationCreateClick(target_data(:,:,selected_slice));
 
@@ -86,12 +95,8 @@ m = size(X0);          % image size for each slice / observation grid
 eta_data = estimate_noise(target_data(:,:,selected_slice),'std');  
 SNR_data= var(A0(:))/eta_data;
 fprintf('SNR_data = %d', SNR_data);
-%% 2.0 Define the observation
-Y= target_data(:,:,selected_slice);
-%% 2.1 level the noise (if needed)
-Y= levelNoiseInteractive(target_data(:,:,selected_slice),'x');
-%% 2.2 normalize the observation
-Y = proj2oblique(P1); % normalize Y 
+%% (ESS) Define the observation as normalized target_data
+Y= proj2oblique(target_data);
 %% II. Sparse Blind Deconvolution:
 %  ===============================
 %% III parameter setting and SBD run and record the whole update into a video
@@ -100,7 +105,7 @@ Y = proj2oblique(P1); % normalize Y
 params.lambda1 = 0.1;              % regularization parameter for Phase I
 
 params.phase2 = true;               % whether to do Phase II (refinement)
-params.kplus = ceil(0.2 * square_size);       % padding for sphere lifting
+params.kplus = ceil(0.5 * square_size);       % padding for sphere lifting
 params.lambda2 = 0.05;              % FINAL reg. param. value forclose  Phase II
 params.nrefine = 3;                 % number of refinements
 
@@ -111,10 +116,10 @@ params.getbias  = true;
 params.Xsolve = 'FISTA';
 
 % Create a VideoWriter object
-video_filename = 'Ag.avi';  % Specify the output file name
-v = VideoWriter(video_filename);  % Create the VideoWriter object
-v.FrameRate = 10;  % Set the frame rate (adjust as needed)
-open(v);  % Open the file for writing
+%video_filename = 'Ag.avi';  % Specify the output file name
+%v = VideoWriter(video_filename);  % Create the VideoWriter object
+%v.FrameRate = 10;  % Set the frame rate (adjust as needed)
+%open(v);  % Open the file for writing
 
 % A function for showing updates as RTRM runs
 figure;
@@ -124,18 +129,18 @@ dispfun = @( Y, A, X, square_size, kplus, idx ) showims(Y,A0,X,A,X,square_size,k
 frame = getframe(gcf);  % gcf gets the current figure
     
 % Write the frame to the video
-writeVideo(v, frame);
+%writeVideo(v, frame);
 
 % 2. The fun part
 [Aout, Xout, extras] = SBD_test( Y, square_size, params, dispfun, A0 );
 %[Aout, Xout, extras] = SBD( Y, square_size, params, dispfun );
 
 % close video
-close(v);
+%close(v);
 
 % Save the result
 save('SBD-STM_datarun_Stephanie_AgGrid006_2.mat', 'Y', 'Xout', 'Aout','extras','square_size', "params");
-disp(['Video saved as ', video_filename]);
+%disp(['Video saved as ', video_filename]);
 %% Visualization 
 showims(Y,A0,Xout,Aout,Xout,square_size,[],1)
 
