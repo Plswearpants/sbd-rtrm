@@ -1,14 +1,13 @@
-function [ Xsol, info ] = Xsolve_FISTA( Y, A, lambda, mu, varargin )
+function [Xsol, info] = Xsolve_FISTA(Y, A, lambda, mu, varargin)
 %XSOLVE_FISTA   Solve for X using FISTA method
 %   - Core usage:
-%       [ Xsol, info ] = Xsolve_FISTA( Y, A, lambda, mu )
+%       [Xsol, info] = Xsolve_FISTA(Y, A, lambda, mu)
 %
 %   - Optional variables:
-%       [ ... ] = Xsolve_FISTA( ... , Xinit, Xpos, getbias )
-%       Xinit:      initial value for X
+% %       [...] = Xsolve_FISTA(..., Xinit, Xpos, getbias)
+%       Xinit:      initial value for X (cell array for multiple kernels)
 %       Xpos:       constrain X to be a positive solution
 %       getbias:    extract constant bias as well as X
-%
 
     % Initialize variables and function handles:
     fpath = fileparts(mfilename('fullpath'));
@@ -22,18 +21,26 @@ function [ Xsol, info ] = Xsolve_FISTA( Y, A, lambda, mu, varargin )
     else
         n = 1;
     end
-  
 
+    % Ensure A is always a cell array
+    if ~iscell(A)
+        A = {A};
+    end
+    num_kernels = length(A);
     %% Checking arguments:
     nvararg = numel(varargin);
     if nvararg > 3
         error('Too many input arguments.');
     end
 
-    idx = 1; X = zeros(m); b = zeros(n,1);
+    idx = 1; X = cell(1, num_kernels); b = zeros(n, num_kernels);
     if nvararg >= idx && ~isempty(varargin{idx})
         X = varargin{idx}.X;
         b = varargin{idx}.b;
+    else
+        for i = 1:num_kernels
+            X{i} = zeros(m);
+        end
     end
 
     idx = 2; xpos = false;
@@ -46,30 +53,57 @@ function [ Xsol, info ] = Xsolve_FISTA( Y, A, lambda, mu, varargin )
         getbias = varargin{idx};
     end
 
-    
-    
     %% Iterate:    
-    t=1; W = X; u = b;
-    costs = NaN(MAXIT,2);
-    doagain = true;  it = 0;  count = 0;
+    t = 1; W = X; u = b;
+    costs = NaN(MAXIT, 2);
+    doagain = true; it = 0; count = 0;
     while doagain
-	it = it + 1;
+        it = it + 1;
         % Gradients and Hessians:
-        grad_fW = zeros(m); grad_fu = zeros(n,1); R_A = zeros(m);
-        for i = 1:n     % sum up
-            Ri = convfft2(A(:,:,i), W) + u(i) - Y(:,:,i);
-            grad_fW = grad_fW + convfft2( A(:,:,i), Ri, 1 );
-            grad_fu(i) = sum(Ri(:));
-            R_A = R_A + abs(fft2(A(:,:,i),m(1),m(2))).^2;
+        grad_fW = cell(1, num_kernels);
+        grad_fu = zeros(n, num_kernels);
+        R_A = cell(1, num_kernels);
+        for k = 1:num_kernels
+            grad_fW{k} = zeros(m);
+            R_A{k} = zeros(m);
+            for i = 1:n     % sum up
+                % Use the entire A{k} matrix instead of indexing it
+                Ri = convfft2(A{k}, W{k}(:,:,i)) + u(i,k) - Y(:,:,i);
+                grad_fW{k} = grad_fW{k} + convfft2(A{k}, Ri, 1);
+                grad_fu(i,k) = sum(Ri(:));
+                R_A{k} = R_A{k} + abs(fft2(A{k}, m(1), m(2))).^2;
+            end
         end
 
         % FISTA update
-        L = max(R_A(:));
-        %size(W);
-        X_ = g.prox(W - 1/L*grad_fW, lambda/L, xpos);
-        %size(X_);
+        X_ = cell(1, num_kernels);
+        for k = 1:num_kernels
+            L = max(R_A{k}(:));
+            
+            % Debug information
+            fprintf('Kernel %d:\n', k);
+            fprintf('Size of W{k}: %s\n', mat2str(size(W{k})));
+            fprintf('Size of grad_fW{k}: %s\n', mat2str(size(grad_fW{k})));
+            
+            % Ensure W{k} and grad_fW{k} have the same dimensions
+            if ~isequal(size(W{k}), size(grad_fW{k}))
+                error('Dimension mismatch between W{k} and grad_fW{k} for kernel %d', k);
+            end
+            
+            % Remove squeeze if W{k} is already 2D
+            if ndims(W{k}) == 2
+                X_{k} = g.prox(W{k} - 1/L*grad_fW{k}, lambda/L, xpos);
+            else
+                X_{k} = g.prox(squeeze(W{k} - 1/L*grad_fW{k}), lambda/L, xpos);
+            end
+            
+            % Debug information
+            fprintf('Size of X_{k}: %s\n', mat2str(size(X_{k})));
+        end
         t_ = (1+sqrt(1+4*t^2))/2;
-        W = X_ + (t-1)/t_*(X_-X);
+        for k = 1:num_kernels
+            W{k} = X_{k} + (t-1)/t_*(X_{k}-X{k});
+        end
         if getbias
             b_ = u - grad_fu/(2*prod(m)*sqrt(n));  
             u = b_ + (t-1)/t_*(b_-b);
@@ -77,34 +111,47 @@ function [ Xsol, info ] = Xsolve_FISTA( Y, A, lambda, mu, varargin )
         end
         X = X_; t = t_;
 
-        %TODO Check conditions to repeat iteration:
+        % Check conditions to repeat iteration:
         f = 0;
         for i = 1:n
-            f = f + norm(convfft2(A(:,:,i), reshape(X, m)) + b(i) - Y(:,:,i), 'fro')^2/2;
+            sum_conv = zeros(m);
+            for k = 1:num_kernels
+                sum_conv = sum_conv + convfft2(A{k}(:,:,i), reshape(X{k}, m)) + b(i,k);
+            end
+            f = f + norm(sum_conv - Y(:,:,i), 'fro')^2/2;
         end
         costs(it,1) = f;
-        costs(it,2) = g.cost(X, lambda);
+        costs(it,2) = sum(cellfun(@(x) g.cost(x, lambda), X));
 
-        tmp = grad_fW;
-        for i = 1:n
-            %tmp(:,:,i) = tmp(:,:,i) + grad_fu(i); 
-            tmp = tmp + grad_fu(i); %testing
+        delta = 0;
+        for k = 1:num_kernels
+            tmp = grad_fW{k};
+            for i = 1:n
+                tmp = tmp + grad_fu(i,k);
+            end
+            delta = delta + norm(g.diffsubg(X{k}, -tmp, lambda, xpos), 'fro')^2;
         end
-        delta = g.diffsubg(X, -tmp, lambda, xpos);
-        delta = norm(delta(:))/sqrt(prod(m));
+        delta = sqrt(delta)/sqrt(prod(m)*num_kernels);
+        
         if delta < EPSILON
-            count = count+1;
+            count = count + 1;
         else
             count = 0;
         end
         doagain = count < 10 && (it < MAXIT);
     end
-    
+
+    % Ensure output is consistent with input
+    if num_kernels == 1
+        Xsol.X = Xsol.X{1};
+        Xsol.W = Xsol.W{1};
+        Xsol.b = Xsol.b(:,1);
+    end
 
     % Return solution:
     Xsol.X = X;
     Xsol.b = b;
-    Xsol.W = W;         % dummy variable for compatibility with pdNCG.
+    Xsol.W = W;
     Xsol.f = sum(costs(it,:));
     info.numit = it;
     info.delta = delta;

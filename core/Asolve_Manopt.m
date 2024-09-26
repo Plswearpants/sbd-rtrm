@@ -1,4 +1,4 @@
-function [ Aout, Xsol, extras ] = Asolve_Manopt( Y, Ain, lambda, Xsolve, varargin )
+function [Aout, Xsol, extras] = Asolve_Manopt_multi(Y, Ain, lambda, Xsolve, varargin)
 %ASolve_MANOPT     BD using Manopt solvers.
 %   - Core usage:
 %       [ Aout, Xsol, Stats ] = Asolve_Manopt( Y, Ain, lambda, Xsolve)
@@ -9,14 +9,22 @@ function [ Aout, Xsol, extras ] = Asolve_Manopt( Y, Ain, lambda, Xsolve, varargi
 
     load([fileparts(mfilename('fullpath')) '/../config/Asolve_config.mat']); %#ok<*LOAD>
 
-    k = size(Ain);
+    % Ensure Ain is always a cell array
+    if ~iscell(Ain)
+        Ain = {Ain};
+    end
+    num_kernels = length(Ain);
+
+    k = size(Ain{1});
     if (numel(k) > 2)
         n = k(3); k = k(1:2);
     else
         n = 1;
     end
 
-    Ain = Ain/norm(Ain(:));
+    for i = 1:num_kernels
+        Ain{i} = Ain{i}/norm(Ain{i}(:));
+    end
 
     %% Handle the extra variables:
     nvarargin = numel(varargin);
@@ -40,10 +48,13 @@ function [ Aout, Xsol, extras ] = Asolve_Manopt( Y, Ain, lambda, Xsolve, varargi
     
     idx = 1;
     if nvarargin < idx || isempty(varargin{idx})
-        if strcmp(Xsolve,'FISTA')
-            xinit = Xsolve_FISTA(Y, Ain, lambda, mu, [], xpos);
-        elseif strcmp(Xsolve,'pdNCG')
-            xinit = Xsolve_pdNCG(Y, Ain, lambda, mu, [], xpos);
+        xinit = cell(1, num_kernels);
+        for i = 1:num_kernels
+            if strcmp(Xsolve,'FISTA')
+                xinit{i} = Xsolve_FISTA(Y, Ain{i}, lambda, mu, [], xpos);
+            elseif strcmp(Xsolve,'pdNCG')
+                xinit{i} = Xsolve_pdNCG(Y, Ain{i}, lambda, mu, [], xpos);
+            end
         end
     else
         xinit = varargin{idx};
@@ -68,19 +79,23 @@ function [ Aout, Xsol, extras ] = Asolve_Manopt( Y, Ain, lambda, Xsolve, varargi
     suppack.saveiterates = saveiterates;
     %}
 
-    problem.M = spherefactory(prod(k)*n);
-    problem.cost = @(a, store) costfun(a, store, Y, k, n, lambda, mu, xinit, xpos, getbias, Xsolve);
-    problem.egrad = @(a, store) egradfun(a, store,  Y, k, n, lambda, mu, xinit, xpos, getbias, Xsolve);
-    problem.ehess = @(a, u, store) ehessfun(a, u, store,  Y, k, n, lambda, mu, xinit, xpos, getbias, Xsolve);
+    problem.M = productmanifold(struct('S', spherefactory(prod(k)*n), 'n', num_kernels));
+    problem.cost = @(a, store) costfun_multi(a, store, Y, k, n, lambda, mu, xinit, xpos, getbias, Xsolve);
+    problem.egrad = @(a, store) egradfun_multi(a, store, Y, k, n, lambda, mu, xinit, xpos, getbias, Xsolve);
+    problem.ehess = @(a, u, store) ehessfun_multi(a, u, store, Y, k, n, lambda, mu, xinit, xpos, getbias, Xsolve);
 
     options.statsfun = @(problem, a, stats, store) statsfun( problem, a, stats, store, k, n, saveiterates, dispfun);
     %options.stopfun = @(problem, x, info, last) stopfun(problem, x, info, last, TRTOL);
 
     % Run Manopt solver:
-    [Aout, extras.cost, info, extras.options] = ManoptSolver(problem, Ain(:), options);
+    [Aout_flat, extras.cost, info, extras.options] = ManoptSolver(problem, cellfun(@(x) x(:), Ain, 'UniformOutput', false), options);
 
     % Produce final output:
-    Aout = reshape(Aout, [k n]);
+    Aout = cell(1, num_kernels);
+    for i = 1:num_kernels
+        Aout{i} = reshape(Aout_flat{i}, [k n]);
+    end
+
     if saveiterates
         extras.Aiter = arrayfun(@(i) info(i).A, 1:numel(info), 'UniformOutput', false);
         niter = numel(extras.Aiter);
@@ -88,15 +103,27 @@ function [ Aout, Xsol, extras ] = Asolve_Manopt( Y, Ain, lambda, Xsolve, varargi
         extras.Xiter = arrayfun(@(i) info(i).X, 1:numel(info), 'UniformOutput', false);
         extras.Xiter = cell2mat(reshape(extras.Xiter, [1 1 niter]));
 
-        Xsol.X = extras.Xiter(:,:,end);
-        Xsol.W = info(end).W;
-        Xsol.b = info(end).b;
-    else
-        if strcmp(Xsolve,'FISTA')
-            Xsol = Xsolve_FISTA( Y, Aout, lambda, mu, xinit, xpos, getbias);
-        elseif strcmp(Xsolve,'pdNCG')
-            Xsol = Xsolve_pdNCG(Y, Aout, lambda, mu, xinit, xpos, getbias);
+        Xsol = cell(1, num_kernels);
+        for i = 1:num_kernels
+            Xsol{i}.X = extras.Xiter{i}(:,:,end);
+            Xsol{i}.W = info(end).W{i};
+            Xsol{i}.b = info(end).b{i};
         end
+    else
+        Xsol = cell(1, num_kernels);
+        for i = 1:num_kernels
+            if strcmp(Xsolve,'FISTA')
+                Xsol{i} = Xsolve_FISTA(Y, Aout{i}, lambda, mu, xinit{i}, xpos, getbias);
+            elseif strcmp(Xsolve,'pdNCG')
+                Xsol{i} = Xsolve_pdNCG(Y, Aout{i}, lambda, mu, xinit{i}, xpos, getbias);
+            end
+        end
+    end
+
+    % Ensure output is consistent with input
+    if num_kernels == 1
+        Aout = Aout{1};
+        Xsol = Xsol{1};
     end
 end
 

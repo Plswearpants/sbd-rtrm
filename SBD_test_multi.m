@@ -1,4 +1,4 @@
-function [ A_phase_I, Aout, Xout, bout, extras ] = SBD_test( Y, k, params, dispfun, kernel_data )
+function [A_phase_I, Aout, Xout, bout, extras] = SBD_test_multi(Y, k, params, dispfun, kernel_data)
 %SBD Summary of this function goes here
 %
 %   PARAMS STRUCT:
@@ -32,6 +32,13 @@ function [ A_phase_I, Aout, Xout, bout, extras ] = SBD_test( Y, k, params, dispf
 %% Process input arguments
 starttime = tic;
 n = size(Y,3);
+
+% Ensure kernel_data is always a cell array
+if ~iscell(kernel_data)
+    kernel_data = {kernel_data};
+end
+num_kernels = length(kernel_data);
+
 
 if nargin < 4 || isempty(dispfun)
     dispfun = @(Y,A,X,k,kplus,idx) 0;
@@ -143,5 +150,14 @@ end
 
 runtime = toc(starttime);
 fprintf('\nDone! Runtime = %.2fs. \n\n', runtime);
+
+% Ensure output is consistent with input
+if num_kernels == 1
+    A_phase_I = A_phase_I{1};
+    Aout = Aout{1};
+    Xout = Xout{1};
+    bout = bout(:,1);
+end
+
 end
 
