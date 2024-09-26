@@ -132,7 +132,7 @@ frame = getframe(gcf);  % gcf gets the current figure
 %writeVideo(v, frame);
 
 % 2. The fun part
-[Aout, Xout, extras] = SBD_test( Y, square_size, params, dispfun, A0 );
+[Aout, Xout, extras] = SBD_test( Y, square_size, params, dispfun, A0);
 %[Aout, Xout, extras] = SBD( Y, square_size, params, dispfun );
 
 % close video

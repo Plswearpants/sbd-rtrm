@@ -1,4 +1,4 @@
-function [ A_phase_I, Aout, Xout, bout, extras ] = SBD_test( Y, k, params, dispfun, kernel_data )
+function [ A_phase_I, Aout, Xout, bout, extras ] = SBD_test( Y, k, params, dispfun, kernel_initialguess )
 %SBD Summary of this function goes here
 %
 %   PARAMS STRUCT:
@@ -67,7 +67,7 @@ end
 dispfun1 = @(A, X) dispfun(Y, A, X, k, [], 1);
 
 fprintf('PHASE I: \n=========\n');
-A = kernel_data;
+A = kernel_initialguess;
 
 [A, Xsol, info] = Asolve_Manopt( Y, A, lambda1, Xsolve, [], xpos, getbias, dispfun1);
 extras.phase1.A = A;
