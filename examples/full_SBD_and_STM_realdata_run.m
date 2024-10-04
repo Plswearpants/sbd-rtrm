@@ -44,11 +44,13 @@ axis square
 %% I.2 noise leveling 
 % noise level determination 
 eta_data = estimate_noise(target_data,'std');  
+
+% level noise at a sepecific dimension to remove the streak noise 
 target_data = levelNoiseInteractive(target_data,'x');
 
 %% I.3 data normalization
 target_data = normalizeBackgroundToZeroMean3D(target_data,rangetype); 
-
+target_data = proj2oblique(target_data);
 %% I. SIMULATE DATA FOR SBD:
 %  =========================
 
@@ -92,11 +94,12 @@ X0=activationCreateClick(target_data(:,:,selected_slice));
 m = size(X0);          % image size for each slice / observation grid
 
 %% noise level determination 
-eta_data = estimate_noise(target_data(:,:,selected_slice),'std');  
+eta_data = estimate_noise(target_data, 'std');  
 SNR_data= var(A0(:))/eta_data;
 fprintf('SNR_data = %d', SNR_data);
 %% (ESS) Define the observation as normalized target_data
-Y= proj2oblique(target_data);
+%Y= proj2oblique(target_data);
+Y= target_data;
 %% II. Sparse Blind Deconvolution:
 %  ===============================
 %% III parameter setting and SBD run and record the whole update into a video

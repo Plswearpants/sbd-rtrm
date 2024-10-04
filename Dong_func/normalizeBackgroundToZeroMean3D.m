@@ -36,6 +36,7 @@ comment = sprintf("normalizeBackgroundToZeroMean3D(selected_slice:%d)|", selecte
 figure;
 imagesc(data_3d(:,:,selected_slice));
 colormap('viridis');
+axis square;
 title('Select Background Area (This will be applied to all slices)');
 h = imrect;
 position = wait(h);  % Wait for the user to double-click the rectangle
