@@ -54,6 +54,10 @@ target_data = normalizeBackgroundToZeroMean3D(target_data,rangetype);
 
 target_data = proj2oblique(target_data);
 
+figure; 
+imagesc(target_data);
+colorbar;
+axis square;
 %% I. SIMULATE DATA FOR SBD:
 %  =========================
 
@@ -130,7 +134,7 @@ params.Xsolve = 'FISTA';
 
 % A function for showing updates as RTRM runs
 figure;
-dispfun = @( Y, A, X, square_size, kplus, idx ) showims(Y,A0,X,A,X,square_size,kplus,idx);
+dispfun = @( Y, A, X, square_size, kplus, idx ) showims_multikernel(Y,A0,X0,A,X,square_size,kplus,idx);
 
 % Capture the current frame
 frame = getframe(gcf);  % gcf gets the current figure

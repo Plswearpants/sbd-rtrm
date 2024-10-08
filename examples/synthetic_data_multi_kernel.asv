@@ -1,0 +1,97 @@
+clc; clear;
+
+% Import Manopt and initialize the SBD package
+run('../init_sbd');
+fprintf('\n\n');
+
+%% ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Create synthetic multi-kernel observation~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+%% 0. Define parameters
+num_kernels = 2;
+n = 1;  % number of energy layers per kernel, default 1
+image_size  = [256, 256];
+kernel_size = [50, 50];
+
+%% Initialize as simulated kernel from TB model 
+% Randomly choose n kernel slices from simulated LDoS data
+load('example_data/LDoS_sim.mat');
+A0 = zeros([kernel_size num_kernels]);
+sliceidx = randperm(size(LDoS_sim,3), num_kernels);
+for k = 1:num_kernels
+    A0(:,:,k) = imresize(LDoS_sim(:,:,sliceidx(k)), kernel_size);
+    % Need to put each slice back onto the sphere
+    A0(:,:,k) = proj2oblique(A0(:,:,k));
+end
+
+%% 2. Activation map generation:
+%   Each pixel has probability theta of being a kernel location
+theta_cap = 1e-3;
+theta = theta_cap * rand(1, num_kernels);  % Generate num_kernels thetas capped by theta_cap
+
+SNR = 10;
+eta = var(A0(:,:,1),0,"all")/SNR;             % additive noise variance
+
+% GENERATE
+X0 = zeros([image_size num_kernels]);
+for k = 1:num_kernels
+    X0_good = false;
+    while ~X0_good
+        X0(:,:,k) = double(rand(image_size) <= theta(k));  % activations are on / off
+        X0_good = sum(X0(:,:,k) ~= 0) > 0;
+    end
+end
+
+b0 = randn;
+
+% observation generation with noise
+Y = zeros(image_size);
+for k = 1:num_kernels           
+    Y = Y + convfft2(A0(:,:,k), X0(:,:,k));
+end
+
+Y = Y + b0 + sqrt(eta)*randn(image_size);
+
+imagesc(Y);
+colorbar;
+axis square;
+
+%% ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Start SBD-STM on the synthetic data~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+%% Initialize as random kernel 
+kerneltype = 'random';   
+
+% Randomly generate n kernel slices
+A1 = randn([kernel_size num_kernels]);
+% Need to put each slice back onto the sphere
+A1 = proj2oblique(A1);
+
+%% 1. Settings
+
+% A function for showing updates as RTRM runs
+figure;
+dispfun = @(Y, A, X, kernel_size, kplus, idx) showims_multikernel(Y, A0, X0, A, X, kernel_size, kplus, idx);
+
+% SBD settings
+params.lambda1 = 1e-1;  % regularization parameter for Phase I
+
+params.phase2 = true;
+params.kplus = ceil(0.5 * square_size);
+params.lambda2 = 5e-2;  % FINAL reg. param. value for Phase II
+params.nrefine = 3;
+
+params.signflip = 0.2;
+params.xpos = true;
+params.getbias = true;
+params.Xsolve = 'FISTA';
+
+% 2. The fun part
+[Aout, Xout, extras] = SBD_test(Y, kernel_size, params, dispfun, A1);
+
+% Save the result
+save('SBD-STM.mat', 'Y', 'X0', 'A0', 'Xout', 'Aout', 'sliceidx', 'square_size');
+
+%% Visualization I
+figure();
+showims_multi(Y, A0, X0, Aout, Xout, square_size, [], 5);
+
+%% Visualization II
+square_size = [size(Aout{1},1), size(Aout{1},1)];
+showims_fft_multi(Y, A0, X0, Aout, Xout, square_size, [], 4, 1);

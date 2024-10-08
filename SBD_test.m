@@ -69,7 +69,7 @@ dispfun1 = @(A, X) dispfun(Y, A, X, k, [], 1);
 fprintf('PHASE I: \n=========\n');
 A = kernel_initialguess;
 
-[A, Xsol, info] = Asolve_Manopt( Y, A, lambda1, Xsolve, [], xpos, getbias, dispfun1);
+[A, Xsol, info] = Asolve_Manopt_multikernel( Y, A, lambda1, Xsolve, [], xpos, getbias, dispfun1);
 extras.phase1.A = A;
 extras.phase1.X = Xsol.X;
 extras.phase1.b = Xsol.b;
