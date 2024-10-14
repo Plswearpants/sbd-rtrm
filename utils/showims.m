@@ -16,7 +16,7 @@ function showims( Y, A0, X0, A, X, k, kplus, idx )
         ylabel('abs(A)'); 
         X_hat = X;
     end
-    
+   
     subplot(325); imagesc(abs(X0)); ylabel('abs(X)');
     subplot(326); imagesc(abs(X_hat));
 

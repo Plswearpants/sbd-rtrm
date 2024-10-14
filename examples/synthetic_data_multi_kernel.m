@@ -9,26 +9,29 @@ fprintf('\n\n');
 num_kernels = 2;
 n = 1;  % number of energy layers per kernel, default 1
 image_size  = [256, 256];
-kernel_size = [50, 50];
-rangetype = 'dynamic';
+kernel_size = zeros(num_kernels,2);
+kernel_size(1,:) = [50, 50];
+kernel_size(2,:) = [50, 50];
+
+rangetype = 'dynamic';  
 %% Initialize as simulated kernel from TB model 
 % Randomly choose n kernel slices from simulated LDoS data
 load('example_data/LDoS_sim.mat');
-A0 = zeros([kernel_size num_kernels]);
 sliceidx = randperm(size(LDoS_sim,3), num_kernels);
-for k = 1:num_kernels
-    A0(:,:,k) = imresize(LDoS_sim(:,:,sliceidx(k)), kernel_size);
+A0 = cell(1,num_kernels);
+for n = 1:num_kernels
+    A0{n} = imresize(LDoS_sim(:,:,sliceidx(n)), kernel_size(n,:));
     % Need to put each slice back onto the sphere
-    A0(:,:,k) = proj2oblique(A0(:,:,k));
+    A0{n} = proj2oblique(A0{n});
 end
 
 %% 2. Activation map generation:
 %   Each pixel has probability theta of being a kernel location
-theta_cap = 3e-4;
-theta = theta_cap * rand(1, num_kernels);  % Generate num_kernels thetas capped by theta_cap
+theta_cap = 2e-4;
+theta = theta_cap/2 + theta_cap/2 * rand(1, num_kernels);  % Generate num_kernels thetas capped by theta_cap
 
 SNR = 10;
-eta = var(A0(:,:,1),0,"all")/SNR;             % additive noise variance
+eta = var(A0{1},0,"all")/SNR;             % additive noise variance
 
 % GENERATE
 X0 = zeros([image_size num_kernels]);
@@ -45,7 +48,7 @@ b0 = randn;
 % observation generation with noise
 Y = zeros(image_size);
 for k = 1:num_kernels           
-    Y = Y + convfft2(A0(:,:,k), X0(:,:,k));
+    Y = Y + convfft2(A0{k}, X0(:,:,k));
 end
 
 Y = Y + b0 + sqrt(eta)*randn(image_size);
@@ -60,43 +63,113 @@ colorbar;
 axis square;
 
 %% ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Start SBD-STM on the synthetic data~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-%% Initialize as random kernel 
-kerneltype = 'random';   
+%% Initialize   
+kerneltype = 'selected';   % existing options: 'random' or 'selected'
 
-% Randomly generate n kernel slices
-A1 = randn([kernel_size num_kernels]);
-% Need to put each slice back onto the sphere
-A1 = proj2oblique(A1);
+% Initialize kernels
+A1 = initialize_kernels(Y, num_kernels, kernel_size, kerneltype);
 
 %% 1. Settings
 
 % A function for showing updates as RTRM runs
 figure;
-dispfun = @(Y, A, X, kernel_size, kplus, idx) showims_multikernel(Y, A0, X0, A, X, kernel_size, kplus, idx);
 
-% SBD settings
-params.lambda1 = 1e-1;  % regularization parameter for Phase I
+dispfun = cell(1,num_kernels);
+dispfun{1} = @(Y, A, X, kernel_size, kplus) showims(Y,A0{1},X0(:,:,1),A,X,kernel_size,kplus,1); % here the last entry in the showims function is the energy layer index n. 
+dispfun{2} = @(Y, A, X, kernel_size, kplus) showims(Y,A0{2},X0(:,:,2),A,X,kernel_size,kplus,1);
 
-params.phase2 = true;
-params.kplus = ceil(0.5 * kernel_size);
-params.lambda2 = 5e-2;  % FINAL reg. param. value for Phase II
+
+% SBD settings.
+initial_iteration = 10;
+maxIT= 3;
+
+params.lambda1 = [1e-1,1e-1,1e-1];  % regularization parameter for Phase I
+
+params.phase2 = false;
+params.kplus = ceil(0.5 * k);
+params.lambda2 = [5e-2, 5e-2, 5e-2];  % FINAL reg. param. value for Phase II
 params.nrefine = 3;
 
 params.signflip = 0.2;
 params.xpos = true;
 params.getbias = true;
 params.Xsolve = 'FISTA';
+
+
 %%
 % 2. The fun part
-[Aout, Xout, extras] = SBD_test(Y, kernel_size, params, dispfun, A1);
+[Aout, Xout, extras] = SBD_test_multi(Y, kernel_size, params, dispfun, A1, initial_iteration, maxIT);
 
-% Save the result
-save('SBD-STM.mat', 'Y', 'X0', 'A0', 'Xout', 'Aout', 'sliceidx', 'square_size');
+%% Save the result
 
-%% Visualization I
-figure();
-showims_multi(Y, A0, X0, Aout, Xout, square_size, [], 5);
+% Generate a unique filename for the workspace
+timestamp = datestr(now, 'yyyymmdd_HHMMSS');
+filename = sprintf('SBD_STM_results_%s.mat', timestamp);
 
-%% Visualization II
-square_size = [size(Aout{1},1), size(Aout{1},1)];
-showims_fft_multi(Y, A0, X0, Aout, Xout, square_size, [], 4, 1);
+% Ensure the filename is unique
+counter = 1;
+while exist(filename, 'file')
+    counter = counter + 1;
+    filename = sprintf('SBD_STM_results_%s_%d.mat', timestamp, counter);
+end
+
+% Save the specified variables to the workspace
+save(filename, 'A0', 'X0', 'Aout', 'Xout', 'extras', 'Y');
+
+fprintf('Results saved to: %s\n', filename);
+
+%% Visualization of the multi-kernel results
+% Visualization of the multi-kernel results
+figure;
+
+% Loop through each kernel
+for i = 1:num_kernels
+    % Create a new figure for each kernel
+    figure;
+    
+    % Use showims to display the results for each kernel
+    showims(Y, A0{i}, X0(:,:,i), Aout{i}, Xout(:,:,i), kernel_size(i,:), [], 1);
+    
+    % Add a title to each figure
+    sgtitle(['Kernel ' num2str(i) ' Results']);
+end
+
+% Display the original image and the reconstructed image
+figure;
+
+% Original image
+subplot(121);
+imagesc(Y(:,:,1));
+title('Original Image');
+colorbar;
+axis image;
+
+% Reconstructed image
+Y_reconstructed = zeros(size(Y));
+for i = 1:num_kernels
+    Y_reconstructed = Y_reconstructed + convfft2(Aout{i}, Xout(:,:,i));
+end
+
+subplot(122);
+imagesc(Y_reconstructed(:,:,1));
+title('Reconstructed Image');
+colorbar;
+axis image;
+
+% Add a main title
+sgtitle('Original vs Reconstructed Image');
+
+% Display the difference image
+figure;
+imagesc(Y(:,:,1) - Y_reconstructed(:,:,1));
+title('Difference Image (Original - Reconstructed)');
+colorbar;
+axis image;
+
+% Print out some quantitative metrics
+mse = mean((Y(:,:,1) - Y_reconstructed(:,:,1)).^2, 'all');
+psnr = 10 * log10(max(Y(:,:,1), [], 'all')^2 / mse);
+
+fprintf('Mean Squared Error: %f\n', mse);
+fprintf('Peak Signal-to-Noise Ratio: %f dB\n', psnr);
+
