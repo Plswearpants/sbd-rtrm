@@ -101,11 +101,13 @@ end
 fprintf('finished initializing A\n');
 
 Yiter_initial = sum(Yiter,3)-(kernel_num-1)*Y_background; % Yiter_initial resembles the initial Y after this iteration, with the excessive background removed
-quality_factor = zeros(maxIT,1);
-quality_factor(1) = var(Y(:)-Yiter_initial(:)); % the quality factor is the variance of the residual
+quality_factor = var(Y(:)-Yiter_initial(:)); % the quality factor is the variance of the residual
 
 %% Phase II : Use the first iteration result and Pass to BD for batch iteration
 fprintf('PHASE II: \n=========\n');
+
+quality_factors = zeros(maxIT, 1);
+quality_factors(1) = quality_factor;  % Store the initial quality factor
 
 for iter = 2:maxIT
     starttime = tic;
@@ -129,10 +131,13 @@ for iter = 2:maxIT
     end 
 
     Yiter_this = sum(Yiter, 3)-(kernel_num-1)*Y_background;
-    quality_factor(iter) = var(Y(:) - Yiter_this(:));
+    quality_factors(iter) = var(Y(:) - Yiter_this(:));
     runtime = toc(starttime);
-    fprintf('Iteration %d: Runtime = %.2fs, Quality Factor = %.8e\n', iter, runtime, quality_factor(iter));
+    fprintf('Iteration %d: Runtime = %.2fs, Quality Factor = %.8e\n', iter, runtime, quality_factors(iter));
 end
+
+% Store quality factors in extras
+extras.quality_factors = quality_factors;
 
 %% Finished: get the final A, X
 Aout = A;
@@ -141,10 +146,11 @@ bout = biter;
 
 % Visualize quality factor
 figure;
-plot(1:maxIT, quality_factor);
+semilogy(1:maxIT, quality_factors);
 xlabel('Iteration');
 ylabel('Quality Factor');
 title('Quality Factor vs. Iteration');
+grid on;
 
 %{
 extras.phase1.A = A;

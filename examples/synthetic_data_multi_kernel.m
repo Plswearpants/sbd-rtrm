@@ -6,12 +6,13 @@ fprintf('\n\n');
 
 %% ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Create synthetic multi-kernel observation~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 %% 0. Define parameters
-num_kernels = 2;
+num_kernels = 3;
 n = 1;  % number of energy layers per kernel, default 1
-image_size  = [256, 256];
+image_size  = [300, 300];
 kernel_size = zeros(num_kernels,2);
 kernel_size(1,:) = [50, 50];
 kernel_size(2,:) = [50, 50];
+kernel_size(3,:) = [40, 40];
 
 rangetype = 'dynamic';  
 %% Initialize as simulated kernel from TB model 
@@ -27,7 +28,7 @@ end
 
 %% 2. Activation map generation:
 %   Each pixel has probability theta of being a kernel location
-theta_cap = 2e-4;
+theta_cap = 1e-4;
 theta = theta_cap/2 + theta_cap/2 * rand(1, num_kernels);  % Generate num_kernels thetas capped by theta_cap
 
 SNR = 10;
@@ -77,11 +78,13 @@ figure;
 dispfun = cell(1,num_kernels);
 dispfun{1} = @(Y, A, X, kernel_size, kplus) showims(Y,A0{1},X0(:,:,1),A,X,kernel_size,kplus,1); % here the last entry in the showims function is the energy layer index n. 
 dispfun{2} = @(Y, A, X, kernel_size, kplus) showims(Y,A0{2},X0(:,:,2),A,X,kernel_size,kplus,1);
+dispfun{3} = @(Y, A, X, kernel_size, kplus) showims(Y,A0{3},X0(:,:,3),A,X,kernel_size,kplus,1);
+
 
 
 % SBD settings.
 initial_iteration = 10;
-maxIT= 3;
+maxIT= 100;
 
 params.lambda1 = [1e-1,1e-1,1e-1];  % regularization parameter for Phase I
 
@@ -110,7 +113,7 @@ filename = sprintf('SBD_STM_results_%s.mat', timestamp);
 counter = 1;
 while exist(filename, 'file')
     counter = counter + 1;
-    filename = sprintf('SBD_STM_results_%s_%d.mat', timestamp, counter);
+    filename = sprintf('SBD_STM_results_3kernels%s_%d.mat', timestamp, counter);
 end
 
 % Save the specified variables to the workspace
