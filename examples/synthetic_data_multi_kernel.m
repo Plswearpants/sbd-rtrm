@@ -79,31 +79,33 @@ dispfun = cell(1,num_kernels);
 dispfun{1} = @(Y, A, X, kernel_size, kplus) showims(Y,A0{1},X0(:,:,1),A,X,kernel_size,kplus,1); % here the last entry in the showims function is the energy layer index n. 
 dispfun{2} = @(Y, A, X, kernel_size, kplus) showims(Y,A0{2},X0(:,:,2),A,X,kernel_size,kplus,1);
 dispfun{3} = @(Y, A, X, kernel_size, kplus) showims(Y,A0{3},X0(:,:,3),A,X,kernel_size,kplus,1);
-
+% Create a function handle for compute_kernel_quality_factors
+compute_kernel_quality = cell(1,num_kernels);
+compute_kernel_quality{1} = @(input_kernel) compute_kernel_quality_factors(A0{1}, input_kernel);
+compute_kernel_quality{2} = @(input_kernel) compute_kernel_quality_factors(A0{2}, input_kernel);
+compute_kernel_quality{3} = @(input_kernel) compute_kernel_quality_factors(A0{3}, input_kernel);
 
 
 % SBD settings.
 initial_iteration = 10;
-maxIT= 100;
+maxIT= 3;
 
 params.lambda1 = [1e-1,1e-1,1e-1];  % regularization parameter for Phase I
-
 params.phase2 = false;
 params.kplus = ceil(0.5 * k);
 params.lambda2 = [5e-2, 5e-2, 5e-2];  % FINAL reg. param. value for Phase II
 params.nrefine = 3;
-
 params.signflip = 0.2;
 params.xpos = true;
 params.getbias = true;
 params.Xsolve = 'FISTA';
+params.compute_kernel_quality = compute_kernel_quality;  % Add the function handle to params
 
-
-%%
+%% Run and save 
 % 2. The fun part
 [Aout, Xout, extras] = SBD_test_multi(Y, kernel_size, params, dispfun, A1, initial_iteration, maxIT);
 
-%% Save the result
+% Save the result
 
 % Generate a unique filename for the workspace
 timestamp = datestr(now, 'yyyymmdd_HHMMSS');
@@ -175,4 +177,3 @@ psnr = 10 * log10(max(Y(:,:,1), [], 'all')^2 / mse);
 
 fprintf('Mean Squared Error: %f\n', mse);
 fprintf('Peak Signal-to-Noise Ratio: %f dB\n', psnr);
-

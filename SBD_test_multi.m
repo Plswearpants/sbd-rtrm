@@ -64,6 +64,8 @@ end
 
 kernel_num = size(k,1);
 mu = 10^-6;
+compute_kernel_quality = params.compute_kernel_quality;  % Extract the function handle
+
 %% PHASE I: 1st iteration through BD
 
 fprintf('PHASE 0: \n=========\n');
@@ -73,11 +75,13 @@ Xint = zeros([size(Y),kernel_num]); % preallocate memory for Xint
 Xiter = zeros([size(Y),kernel_num]); % preallocate memory for Xiter, the intermediate X that will be updated iteratively
 Yiter = zeros([size(Y),kernel_num]); % preallocate memory for Yiter, the intermediate Y that will be updated iteratively
 biter = zeros(kernel_num,1); % preallocate memory for biter, the bias term that will be updated iteratively
+Kernel_quality_factors = zeros(maxIT,kernel_num);
+Observation_quality_factors = zeros(maxIT, 1);
 
 % initial Xint for each kernel
 X_struct = struct();
 
-for n = 1 : kernel_num
+parfor n = 1 : kernel_num
     X_struct.(['x',num2str(n)])  = Xsolve_FISTA_tunable(Y, A{n}, lambda1(n), mu, AX_iteration,[], xpos);
     Xint(:,:,n) = X_struct.(['x',num2str(n)]).X;   
 end
@@ -90,7 +94,7 @@ for m = 1: kernel_num
 end
 
 % iteratively update each kernel
-for n = 1:kernel_num
+parfor n = 1:kernel_num
     Yiter(:,:,n) = Y_background + convfft2(A{n}, Xint(:,:,n));
     dispfun1 = @(A, X) dispfun{n}(Y, A, X, k(n,:), []);
     [A{n}, X_struct.(['x',num2str(n)]), info] = Asolve_Manopt_tunable( Yiter(:,:,n), A{n}, lambda1(n), Xsolve, AX_iteration, X_struct.(['x',num2str(n)]), xpos, getbias, dispfun1);
@@ -101,13 +105,17 @@ end
 fprintf('finished initializing A\n');
 
 Yiter_initial = sum(Yiter,3)-(kernel_num-1)*Y_background; % Yiter_initial resembles the initial Y after this iteration, with the excessive background removed
-quality_factor = var(Y(:)-Yiter_initial(:)); % the quality factor is the variance of the residual
+Observation_quality_factor = var(Y(:)-Yiter_initial(:)); % the quality factor is the variance of the residual
+
+% Compute initial kernel quality factors
+for n = 1:kernel_num
+    Kernel_quality_factors(1, n) = compute_kernel_quality{n}(A{n});
+end
 
 %% Phase II : Use the first iteration result and Pass to BD for batch iteration
 fprintf('PHASE II: \n=========\n');
 
-quality_factors = zeros(maxIT, 1);
-quality_factors(1) = quality_factor;  % Store the initial quality factor
+Observation_quality_factors(1) = Observation_quality_factor;  % Store the initial quality factor
 
 for iter = 2:maxIT
     starttime = tic;
@@ -119,7 +127,7 @@ for iter = 2:maxIT
     end
 
     % iteratively update each kernel
-    for n = 1:kernel_num
+    parfor n = 1:kernel_num
         Yiter(:,:,n) = Y_background + convfft2(A{n}, Xiter(:,:,n));
         dispfun1 = @(A, X) dispfun{n}(Y, A, X, k(n,:), []);
         [A{n}, X_struct.(['x',num2str(n)]), info] = Asolve_Manopt_tunable(Yiter(:,:,n), A{n}, lambda1(n), Xsolve, AX_iteration, X_struct.(['x',num2str(n)]), xpos, getbias, dispfun1);
@@ -128,29 +136,49 @@ for iter = 2:maxIT
         biter(n) = X_struct.(['x',num2str(n)]).b;
         % update Yiter
         Yiter(:,:,n) = Y_background + convfft2(A{n}, Xiter(:,:,n));
+        
+        % Compute kernel quality factor
+        Kernel_quality_factors(iter, n) = compute_kernel_quality{n}(A{n});
     end 
 
     Yiter_this = sum(Yiter, 3)-(kernel_num-1)*Y_background;
-    quality_factors(iter) = var(Y(:) - Yiter_this(:));
+    Observation_quality_factors(iter) = var(Y(:) - Yiter_this(:));
     runtime = toc(starttime);
-    fprintf('Iteration %d: Runtime = %.2fs, Quality Factor = %.8e\n', iter, runtime, quality_factors(iter));
+    fprintf('Iteration %d: Runtime = %.2fs, Observation Quality Factor = %.8e\n', iter, runtime, Observation_quality_factors(iter));
+    for n = 1:kernel_num
+        fprintf('Kernel %d Quality Factor = %.8e\n', n, Kernel_quality_factors(iter, n));
+    end
 end
 
 % Store quality factors in extras
-extras.quality_factors = quality_factors;
+extras.Observation_quality_factors = Observation_quality_factors;
+extras.Kernel_quality_factors = Kernel_quality_factors;
 
 %% Finished: get the final A, X
 Aout = A;
 Xout = Xiter;
 bout = biter;
 
-% Visualize quality factor
+% Visualize quality factors
 figure;
-semilogy(1:maxIT, quality_factors);
+subplot(2,1,1);
+semilogy(1:maxIT, Observation_quality_factors);
 xlabel('Iteration');
-ylabel('Quality Factor');
-title('Quality Factor vs. Iteration');
+ylabel('Observation Quality Factor');
+title('Observation Quality Factor vs. Iteration');
 grid on;
+
+subplot(2,1,2);
+hold on;
+for n = 1:kernel_num
+    semilogy(1:maxIT, Kernel_quality_factors(:,n), 'DisplayName', sprintf('Kernel %d', n));
+end
+xlabel('Iteration');
+ylabel('Kernel Quality Factor');
+title('Kernel Quality Factors vs. Iteration');
+legend('show');
+grid on;
+hold off;
 
 %{
 extras.phase1.A = A;
