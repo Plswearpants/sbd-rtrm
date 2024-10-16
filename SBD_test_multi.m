@@ -66,103 +66,68 @@ kernel_num = size(k,1);
 mu = 10^-6;
 compute_kernel_quality = params.compute_kernel_quality;  % Extract the function handle
 
-%% PHASE I: 1st iteration through BD
+%% Phase I: Initialization and First Iteration
+fprintf('PHASE I: Initialization and First Iteration\n');
 
-fprintf('PHASE 0: \n=========\n');
 A = kernel_initialguess;
-
-Xint = zeros([size(Y),kernel_num]); % preallocate memory for Xint
-Xiter = zeros([size(Y),kernel_num]); % preallocate memory for Xiter, the intermediate X that will be updated iteratively
-Yiter = zeros([size(Y),kernel_num]); % preallocate memory for Yiter, the intermediate Y that will be updated iteratively
-biter = zeros(kernel_num,1); % preallocate memory for biter, the bias term that will be updated iteratively
-Kernel_quality_factors = zeros(maxIT,kernel_num);
-Observation_quality_factors = zeros(maxIT, 1);
-
-% initial Xint for each kernel
 X_struct = struct();
+Xiter = zeros([size(Y),kernel_num]);
+biter = zeros(kernel_num,1);
+kernel_quality_factors = zeros(maxIT,kernel_num);
+observation_quality_factors = zeros(maxIT, 1);
 
-parfor n = 1 : kernel_num
-    X_struct.(['x',num2str(n)])  = Xsolve_FISTA_tunable(Y, A{n}, lambda1(n), mu, AX_iteration,[], xpos);
-    Xint(:,:,n) = X_struct.(['x',num2str(n)]).X;   
-end
-fprintf('finished initializing Xint\n');
-
-% initial Y_background, which is the residual after removing the contribution of each kernel
-for m = 1: kernel_num
-    % update Y_background
-    Y_background = (Y - convfft2(A{m}, Xint(:,:,m)));
-end
-
-% iteratively update each kernel
-parfor n = 1:kernel_num
-    Yiter(:,:,n) = Y_background + convfft2(A{n}, Xint(:,:,n));
-    dispfun1 = @(A, X) dispfun{n}(Y, A, X, k(n,:), []);
-    [A{n}, X_struct.(['x',num2str(n)]), info] = Asolve_Manopt_tunable( Yiter(:,:,n), A{n}, lambda1(n), Xsolve, AX_iteration, X_struct.(['x',num2str(n)]), xpos, getbias, dispfun1);
-    Xiter(:,:,n) = X_struct.(['x',num2str(n)]).X;
-    % update Yiter
-    Yiter(:,:,n) = Y_background + convfft2(A{n}, Xiter(:,:,n));
-end 
-fprintf('finished initializing A\n');
-
-Yiter_initial = sum(Yiter,3)-(kernel_num-1)*Y_background; % Yiter_initial resembles the initial Y after this iteration, with the excessive background removed
-Observation_quality_factor = var(Y(:)-Yiter_initial(:)); % the quality factor is the variance of the residual
-
-% Compute initial kernel quality factors
-for n = 1:kernel_num
-    Kernel_quality_factors(1, n) = compute_kernel_quality{n}(A{n});
-end
-
-%% Phase II : Use the first iteration result and Pass to BD for batch iteration
-fprintf('PHASE II: \n=========\n');
-
-Observation_quality_factors(1) = Observation_quality_factor;  % Store the initial quality factor
-
-for iter = 2:maxIT
+for iter = 1:maxIT
     starttime = tic;
 
-    % initial Y_background, which is the residual after removing the contribution of each kernel
+    % Compute Y_background
     Y_background = Y;
     for m = 1:kernel_num
-        Y_background = Y_background - convfft2(A{m}, Xiter(:,:,m));
+        if iter > 1
+            Y_background = Y_background - convfft2(A{m}, Xiter(:,:,m));
+        end
     end
 
-    % iteratively update each kernel
+    % Update each kernel
     parfor n = 1:kernel_num
-        Yiter(:,:,n) = Y_background + convfft2(A{n}, Xiter(:,:,n));
+        Yiter = Y_background + (iter > 1) * convfft2(A{n}, Xiter(:,:,n));
         dispfun1 = @(A, X) dispfun{n}(Y, A, X, k(n,:), []);
-        [A{n}, X_struct.(['x',num2str(n)]), info] = Asolve_Manopt_tunable(Yiter(:,:,n), A{n}, lambda1(n), Xsolve, AX_iteration, X_struct.(['x',num2str(n)]), xpos, getbias, dispfun1);
-        % update Xiter
+        
+        if iter == 1
+            % Initial X computation (previously in Phase 0)
+            X_struct.(['x',num2str(n)]) = Xsolve_FISTA_tunable(Y, A{n}, lambda1(n), mu, AX_iteration, [], xpos);
+        end
+        
+        [A{n}, X_struct.(['x',num2str(n)]), info] = Asolve_Manopt_tunable(Yiter, A{n}, lambda1(n), Xsolve, AX_iteration, X_struct.(['x',num2str(n)]), xpos, getbias, dispfun1);
+        
         Xiter(:,:,n) = X_struct.(['x',num2str(n)]).X;
         biter(n) = X_struct.(['x',num2str(n)]).b;
-        % update Yiter
-        Yiter(:,:,n) = Y_background + convfft2(A{n}, Xiter(:,:,n));
         
         % Compute kernel quality factor
-        Kernel_quality_factors(iter, n) = compute_kernel_quality{n}(A{n});
-    end 
+        kernel_quality_factors(iter, n) = compute_kernel_quality{n}(A{n});
+    end
 
-    Yiter_this = sum(Yiter, 3)-(kernel_num-1)*Y_background;
-    Observation_quality_factors(iter) = var(Y(:) - Yiter_this(:));
+    % Compute observation quality factor
+    Yiter_combined = sum(Yiter, 3) - (kernel_num-1)*Y_background;
+    observation_quality_factors(iter) = var(Y(:) - Yiter_combined(:));
+
     runtime = toc(starttime);
-    fprintf('Iteration %d: Runtime = %.2fs, Observation Quality Factor = %.8e\n', iter, runtime, Observation_quality_factors(iter));
+    fprintf('Iteration %d: Runtime = %.2fs, Observation Quality Factor = %.8e\n', iter, runtime, observation_quality_factors(iter));
     for n = 1:kernel_num
-        fprintf('Kernel %d Quality Factor = %.8e\n', n, Kernel_quality_factors(iter, n));
+        fprintf('Kernel %d Quality Factor = %.8e\n', n, kernel_quality_factors(iter, n));
     end
 end
 
-% Store quality factors in extras
-extras.Observation_quality_factors = Observation_quality_factors;
-extras.Kernel_quality_factors = Kernel_quality_factors;
-
-%% Finished: get the final A, X
-Aout = A;
-Xout = Xiter;
-bout = biter;
+% Store results and quality factors
+extras.observation_quality_factors = observation_quality_factors;
+extras.kernel_quality_factors = kernel_quality_factors;
+extras.phase1.Aout = A;
+extras.phase1.Xout = Xiter;
+extras.phase1.biter = biter;
 
 % Visualize quality factors
 figure;
 subplot(2,1,1);
-semilogy(1:maxIT, Observation_quality_factors);
+semilogy(1:maxIT, observation_quality_factors);
 xlabel('Iteration');
 ylabel('Observation Quality Factor');
 title('Observation Quality Factor vs. Iteration');
@@ -171,7 +136,7 @@ grid on;
 subplot(2,1,2);
 hold on;
 for n = 1:kernel_num
-    semilogy(1:maxIT, Kernel_quality_factors(:,n), 'DisplayName', sprintf('Kernel %d', n));
+    semilogy(1:maxIT, kernel_quality_factors(:,n), 'DisplayName', sprintf('Kernel %d', n));
 end
 xlabel('Iteration');
 ylabel('Kernel Quality Factor');
@@ -180,81 +145,92 @@ legend('show');
 grid on;
 hold off;
 
-%{
-extras.phase1.A = A;
-extras.phase1.X = Xsol.X;
-extras.phase1.b = Xsol.b;
-extras.phase1.info = info;
-A_phase_I = A ;
-
-
-%% PHASE III: Lift the sphere and do lambda continuation
+%% PHASE II: Lift the sphere and do lambda continuation
 if params.phase2
+    fprintf('\n\nPHASE II: \n=========\n');
     k2 = k + 2*kplus;
-    dispfun2 = @(A, X) dispfun(Y, A, X, k2, 0, 1);
 
-    A2 = zeros([k2 n]);
-    A2(kplus(1)+(1:k(1)), kplus(2)+(1:k(2)), :) = A;
-    X2sol = Xsol;
-    %X2sol.X = circshift(Xsol.X,-kplus);
-    %X2sol.W = circshift(Xsol.W,-kplus);
-    % clear A Xsol;
+    A2 = cell(1, kernel_num);
+    X2_struct = struct();
+    for n = 1:kernel_num
+        A2{n} = zeros(k3(n,:));
+        A2{n}(kplus(n,1)+(1:k(n,1)), kplus(n,2)+(1:k(n,2))) = A{n};
+        X2_struct.(['x',num2str(n)]) = X_struct.(['x',num2str(n)]);
+        % X2_struct.(['x',num2str(n)]).X = circshift(X_struct.(['x',num2str(n)]).X, -kplus(n,:));
+        % X2_struct.(['x',num2str(n)]).W = circshift(X_struct.(['x',num2str(n)]).W, -kplus(n,:));
+    end
 
     lambda = lambda1;
-    score = zeros(2*kplus+1);
-    fprintf('\n\nPHASE II: \n=========\n');
-    lam2fac = (lambda2/lambda1)^(1/nrefine);
-    i = 1;
-    while i <= nrefine + 1
-        fprintf('lambda = %.1e: \n', lambda);
-        [A2, X2sol, info] = Asolve_Manopt( Y, A2, lambda, Xsolve, X2sol, xpos, getbias, dispfun2 );
-        fprintf('\n');
-
-        %Attempt to 'unshift" the a and x by taking the l1-norm over all k-contiguous elements:
-        for tau1 = -kplus(1):kplus(1)
-            ind1 = tau1+kplus(1)+1;
-            for tau2 = -kplus(2):kplus(2)
-                ind2 = tau2+kplus(2)+1;
-                temp = A2(ind1:(ind1+k(1)-1), ind2:(ind2+k(2))-1,:);
-                score(ind1,ind2) = norm(temp(:), 1);
-            end
+   
+    lam2fac = (lambda2./lambda1).^(1/nrefine);
+    
+    for i = 1:nrefine + 1
+        fprintf('lambda iteration %d/%d: \n', i, nrefine + 1);
+        
+        % initial Y_background
+        Y_background = Y;
+        for m = 1:kernel_num
+            Y_background = Y_background - convfft2(A2{m}, X2_struct.(['x',num2str(m)]).X);
         end
-        [temp,ind1] = max(score); [~,ind2] = max(temp);
-        tau = [ind1(ind2) ind2]-kplus-1;
-        A2 = circshift(A2,-tau);
-        X2sol.X = circshift(X2sol.X,tau);
-        X2sol.W = circshift(X2sol.W,tau);
 
-        % Save phase 2 extras:
-        if i == 1;  idx = 1;    else; idx = i;    end
-        extras.phase2(idx).A = A2;
-        extras.phase2(idx).X = X2sol.X;
-        extras.phase2(idx).b = X2sol.b;
-        extras.phase2(idx).info = info;
-        if i == 1;  extras.phase2 = fliplr(extras.phase2);  end
+        for n = 1:kernel_num
+            fprintf('Processing kernel %d, lambda = %.1e: \n', n, lambda(n));
+            Yiter = Y_background + convfft2(A2{n}, X2_struct.(['x',num2str(n)]).X);
+            dispfun2 = @(A, X) dispfun{n}(Y, A, X, k2(n,:), 0, 1);
+            [A2{n}, X2_struct.(['x',num2str(n)]), info] = Asolve_Manopt_tunable(Yiter, A2{n}, lambda(n), Xsolve, AX_iteration, X2_struct.(['x',num2str(n)]), xpos, getbias, dispfun2);
+            
+            % Attempt to 'unshift" the a and x
+            score = zeros(2*kplus(n,1)+1, 2*kplus(n,2)+1);
+            for tau1 = -kplus(n,1):kplus(n,1)
+                ind1 = tau1+kplus(n,1)+1;
+                for tau2 = -kplus(n,2):kplus(n,2)
+                    ind2 = tau2+kplus(n,2)+1;
+                    temp = A2{n}(ind1:(ind1+k(n,1)-1), ind2:(ind2+k(n,2)-1));
+                    score(ind1,ind2) = norm(temp(:), 1);
+                end
+            end
+            [temp,ind1] = max(score); [~,ind2] = max(temp);
+            tau = [ind1(ind2) ind2]-kplus(n,:)-1;
+            A2{n} = circshift(A2{n},-tau);
+            X2_struct.(['x',num2str(n)]).X = circshift(X2_struct.(['x',num2str(n)]).X,tau);
+            X2_struct.(['x',num2str(n)]).W = circshift(X2_struct.(['x',num2str(n)]).W,tau);
 
-        dispfun2(A2,X2sol.X);
-        lambda = lambda*lam2fac;
-        i = i+1;
-
+            % Save phase 2 extras:
+            extras.phase2.A{n} = A2{n};
+            extras.phase2.X{n} = X2_struct.(['x',num2str(n)]).X;
+            extras.phase2.b(n) = X2_struct.(['x',num2str(n)]).b;
+            extras.phase2.info{n} = info;
+        end
+        
+        lambda = lambda .* lam2fac;
     end
 end
 
 %% Finished: get the final A, X
 if params.phase2
-    Aout = A2(kplus(1)+(1:k(1)), kplus(2)+(1:k(2)), :);
-    extras.normA = norm(Aout(:));
-    Xout = circshift(X2sol.X,kplus) * norm(Aout(:));
-    Aout = Aout/norm(Aout(:));
-    bout = X2sol.b;
+    Aout = cell(1, kernel_num);
+    Xout = zeros(size(Y,1), size(Y,2), kernel_num);
+    bout = zeros(kernel_num, 1);
+    extras.normA = zeros(kernel_num, 1);
+    
+    for n = 1:kernel_num
+        Aout{n} = A2{n}(kplus(n,1)+(1:k(n,1)), kplus(n,2)+(1:k(n,2)));
+        extras.normA(n) = norm(Aout{n}(:));
+        Xout(:,:,n) = circshift(X2_struct.(['x',num2str(n)]).X, kplus(n,:)) * extras.normA(n);
+        Aout{n} = Aout{n} / extras.normA(n);
+        bout(n) = X2_struct.(['x',num2str(n)]).b;
+    end
 else
     Aout = A;
-    extras.normA = norm(Aout(:));
-    Xout = Xsol.X;
-    bout = Xsol.b;
+    extras.normA = zeros(kernel_num, 1);
+    for n = 1:kernel_num
+        extras.normA(n) = norm(Aout{n}(:));
+    end
+    Xout = Xiter;
+    bout = biter;
 end
 
 runtime = toc(starttime);
 fprintf('\nDone! Runtime = %.2fs. \n\n', runtime);
-%}
+
 end
