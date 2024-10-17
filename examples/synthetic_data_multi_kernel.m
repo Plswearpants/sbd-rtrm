@@ -6,13 +6,13 @@ fprintf('\n\n');
 
 %% ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Create synthetic multi-kernel observation~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 %% 0. Define parameters
-num_kernels = 3;
+num_kernels = 2;
 n = 1;  % number of energy layers per kernel, default 1
 image_size  = [300, 300];
 kernel_size = zeros(num_kernels,2);
 kernel_size(1,:) = [50, 50];
 kernel_size(2,:) = [50, 50];
-kernel_size(3,:) = [40, 40];
+%kernel_size(3,:) = [40, 40];
 
 rangetype = 'dynamic';  
 %% Initialize as simulated kernel from TB model 
@@ -28,10 +28,10 @@ end
 
 %% 2. Activation map generation:
 %   Each pixel has probability theta of being a kernel location
-theta_cap = 1e-4;
+theta_cap = 9e-4;
 theta = theta_cap/2 + theta_cap/2 * rand(1, num_kernels);  % Generate num_kernels thetas capped by theta_cap
 
-SNR = 10;
+SNR = 10000;
 eta = var(A0{1},0,"all")/SNR;             % additive noise variance
 
 % GENERATE
@@ -78,23 +78,23 @@ figure;
 dispfun = cell(1,num_kernels);
 dispfun{1} = @(Y, A, X, kernel_size, kplus) showims(Y,A0{1},X0(:,:,1),A,X,kernel_size,kplus,1); % here the last entry in the showims function is the energy layer index n. 
 dispfun{2} = @(Y, A, X, kernel_size, kplus) showims(Y,A0{2},X0(:,:,2),A,X,kernel_size,kplus,1);
-dispfun{3} = @(Y, A, X, kernel_size, kplus) showims(Y,A0{3},X0(:,:,3),A,X,kernel_size,kplus,1);
+%dispfun{3} = @(Y, A, X, kernel_size, kplus) showims(Y,A0{3},X0(:,:,3),A,X,kernel_size,kplus,1);
 % Create a function handle for compute_kernel_quality_factors
 compute_kernel_quality = cell(1,num_kernels);
 compute_kernel_quality{1} = @(input_kernel) compute_kernel_quality_factors(A0{1}, input_kernel);
 compute_kernel_quality{2} = @(input_kernel) compute_kernel_quality_factors(A0{2}, input_kernel);
-compute_kernel_quality{3} = @(input_kernel) compute_kernel_quality_factors(A0{3}, input_kernel);
+%compute_kernel_quality{3} = @(input_kernel) compute_kernel_quality_factors(A0{3}, input_kernel);
 
 
 % SBD settings.
-initial_iteration = 10;
-maxIT= 3;
+initial_iteration = 5;
+maxIT= 20;
 
 params.lambda1 = [1e-1,1e-1,1e-1];  % regularization parameter for Phase I
-params.phase2 = false;
-params.kplus = ceil(0.5 * k);
+params.phase2 = true;
+params.kplus = ceil(0.5 * kernel_size);
 params.lambda2 = [5e-2, 5e-2, 5e-2];  % FINAL reg. param. value for Phase II
-params.nrefine = 3;
+params.nrefine = 200;
 params.signflip = 0.2;
 params.xpos = true;
 params.getbias = true;
@@ -103,11 +103,11 @@ params.compute_kernel_quality = compute_kernel_quality;  % Add the function hand
 
 %% Run and save 
 % 2. The fun part
-[Aout, Xout, extras] = SBD_test_multi(Y, kernel_size, params, dispfun, A1, initial_iteration, maxIT);
+[Aout, Xout, bout, extras] = SBD_test_multi(Y, kernel_size, params, dispfun, A1, initial_iteration, maxIT);
 
 % Save the result
 
-% Generate a unique filename for the workspace
+% Generate a unique filename for the work space
 timestamp = datestr(now, 'yyyymmdd_HHMMSS');
 filename = sprintf('SBD_STM_results_%s.mat', timestamp);
 
@@ -119,7 +119,7 @@ while exist(filename, 'file')
 end
 
 % Save the specified variables to the workspace
-save(filename, 'A0', 'X0', 'Aout', 'Xout', 'extras', 'Y');
+save(filename, 'A0', 'X0', 'Aout', 'Xout', 'bout', 'extras', 'Y');
 
 fprintf('Results saved to: %s\n', filename);
 

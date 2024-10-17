@@ -1,0 +1,35 @@
+For the synthetic dataset, we first explore the parameter space of the problem.
+Based on the Creation of the synthetic dataset block in @SBD_test_multi.m, here are the key parameters needed to create a synthetic multi-kernel observation dataset:
+1. num_kernels: Number of kernels (e.g. 2 in this case)
+2. n: Number of energy layers per kernel (e.g. 1 in this case)
+3. image_size: Size of the output image (e.g. [300, 300] in this case)
+4. kernel_size: Size of each kernel (e.g. [50, 50] for both kernels in this case)
+5. theta_cap: Maximum probability for kernel activation (e.g. 1e-4 in this case)
+6. SNR: Signal-to-Noise Ratio (e.g. 10000 in this case)
+Additionally, there are some derived or randomly generated parameters:
+7. theta: Actual activation probabilities for each kernel (randomly generated)
+8. b0: Bias term (randomly generated)
+9. The kernels themselves (A0) are initialized using slices from a pre-loaded simulated LDoS (Local Density of States) data.
+
+Purpose of testing the parameter space is to test the robustness of the algorithm with respect to the parameter changes.
+
+some extreme cases are:
+1. noise-free case
+2. very dense activation map
+3. very sparse activation map
+4. overlapping kernels
+
+Useful tests should be performed in single parameter space while fixing other parameters to be ideal cases.
+Here we define what is an ideal case.
+num_kernels does not matter, as long as it is a multi-kernel problem.
+n does not matter as long as it is a single layer problem.
+image_size does not matter as long as it is a large enough image.
+kernel_size does not matter as long as it captures the whole structure of the kernels.
+
+Test noise_level:  
+Fixed parameters: num_kernels = 2, n = 1, image_size = [300, 300], kernel_size = [[50, 50],[50,50]], theta_cap = 2e-4, b0 = 0. 
+Changing parameters: SNR, A0
+
+Note: we want to test the performance of the algorithm with respect to the noise level and the inital guess of the kernels.
+
+

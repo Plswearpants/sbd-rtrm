@@ -1,4 +1,4 @@
-function [ Xsol, info ] = Xsolve_FISTA_tunable( Y, A, lambda, mu, max_iteration, varargin )
+function [ Xsol, info ] = Xsolve_FISTA_tunable( Y, A, lambda, mu, varargin )
 %XSOLVE_FISTA   Solve for X using FISTA method
 %   - Core usage:
 %       [ Xsol, info ] = Xsolve_FISTA_tunable( Y, A, lambda, mu, max_iteration )
@@ -15,9 +15,7 @@ if nargin < 5
     error('Not enough input arguments. Y, A, lambda, mu, and max_iteration are required.');
 end
 
-% Update the configuration file with the new max_iteration
-update_config('Xsolve_config.mat', 'MAXIT', max_iteration, 'Xsolve_config_tunable.mat');
-load([fileparts(mfilename('fullpath')) '/../config/Xsolve_config_tunable.mat']); %#ok<*LOAD>
+load([fileparts(mfilename('fullpath')) '/../examples/Xsolve_config_tunable.mat']); %#ok<*LOAD>
 
 % Initialize variables and function handles:
 fpath = fileparts(mfilename('fullpath'));

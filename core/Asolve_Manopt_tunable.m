@@ -1,4 +1,4 @@
-function [ Aout, Xsol, extras ] = Asolve_Manopt_tunable( Y, Ain, lambda, Xsolve, max_iteration, varargin)
+function [ Aout, Xsol, extras ] = Asolve_Manopt_tunable( Y, Ain, lambda, Xsolve, varargin)
     %ASolve_MANOPT     BD using Manopt solvers.
     %   - Core usage:
     %       [ Aout, Xsol, Stats ] = Asolve_Manopt_tunable( Y, Ain, lambda, Xsolve, max_iteration)
@@ -6,8 +6,8 @@ function [ Aout, Xsol, extras ] = Asolve_Manopt_tunable( Y, Ain, lambda, Xsolve,
     %   - Optional variables:
     %       [ ... ] = Asolve_Manopt_tunable( ... , Xinit, Xpos, getbias, dispfun )
     %
-    update_config('Asolve_config.mat','options.maxiter',max_iteration, 'Asolve_config_tunable.mat');
-    load([fileparts(mfilename('fullpath')) '/../config/Asolve_config_tunable.mat']); %#ok<*LOAD>
+
+    load([fileparts(mfilename('fullpath')) '/../examples/Asolve_config_tunable.mat']); %#ok<*LOAD>
     
         k = size(Ain);
         if (numel(k) > 2)
