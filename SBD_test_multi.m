@@ -83,16 +83,16 @@ for iter = 1:maxIT
     starttime = tic;
 
     % Compute Y_background
-    Y_background = Y;
+    Y_residual = Y;
     for m = 1:kernel_num
         if iter > 1
-            Y_background = Y_background - convfft2(A{m}, Xiter(:,:,m));
+            Y_residual = Y_residual - convfft2(A{m}, Xiter(:,:,m));
         end
     end
 
     % Update each kernel
     for n = 1:kernel_num
-        Yiter = Y_background + (iter > 1) * convfft2(A{n}, Xiter(:,:,n));
+        Yiter = Y_residual + (iter > 1) * convfft2(A{n}, Xiter(:,:,n));
         dispfun1 = @(A, X) dispfun{n}(Y, A, X, k(n,:), []);
         
         if iter == 1
@@ -110,7 +110,7 @@ for iter = 1:maxIT
     end
 
     % Compute observation quality factor
-    Yiter_combined = sum(Yiter, 3) - (kernel_num-1)*Y_background;
+    Yiter_combined = sum(Yiter, 3) - (kernel_num-1)*Y_residual;
     observation_quality_factors(iter) = var(Y(:) - Yiter_combined(:));
 
     runtime = toc(starttime);
@@ -151,14 +151,14 @@ if params.phase2
         fprintf('lambda iteration %d/%d: \n', i, nrefine + 1);
         
         % initial Y_background
-        Y_background = Y;
+        Y_residual = Y;
         for m = 1:kernel_num
-            Y_background = Y_background - convfft2(A2{m}, X2_struct.(['x',num2str(m)]).X);
+            Y_residual = Y_residual - convfft2(A2{m}, X2_struct.(['x',num2str(m)]).X);
         end
 
         for n = 1:kernel_num
             fprintf('Processing kernel %d, lambda = %.1e: \n', n, lambda(n));
-            Yiter = Y_background + convfft2(A2{n}, X2_struct.(['x',num2str(n)]).X);
+            Yiter = Y_residual + convfft2(A2{n}, X2_struct.(['x',num2str(n)]).X);
             dispfun2 = @(A, X) dispfun{n}(Y, A, X, k3(n,:), kplus(n,:));
             [A2{n}, X2_struct.(['x',num2str(n)]), info] = Asolve_Manopt_tunable(Yiter, A2{n}, lambda(n), Xsolve, X2_struct.(['x',num2str(n)]), xpos, getbias, dispfun2);
             

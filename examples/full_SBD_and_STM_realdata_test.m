@@ -33,7 +33,7 @@ selected_slice = input('Enter the slice number you want to analyze: ');
 
 %% 1. Kernel settings - see kernel types below
 kerneltype = 'simulated_STM';   
-n = 5;               	% number of kernel slices
+n = 1;               	% number of kernel slices
 [square_size,position, mask] = squareDrawSize(dIdV(:,:,selected_slice));           	% determine kernel size
 [kernal_data, ~] = gridCropMask(dIdV(:,:,selected_slice), mask);           % the cropped real data as kernal(wishlist, could act as initial kernal in the iteration process)
 %% 2. Activation map generation:

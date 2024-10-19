@@ -28,10 +28,10 @@ end
 
 %% 2. Activation map generation:
 %   Each pixel has probability theta of being a kernel location
-theta_cap = 9e-4;
+theta_cap = 1e-4;
 theta = theta_cap/2 + theta_cap/2 * rand(1, num_kernels);  % Generate num_kernels thetas capped by theta_cap
 
-SNR = 10000;
+SNR = 1.2;
 eta = var(A0{1},0,"all")/SNR;             % additive noise variance
 
 % GENERATE
@@ -87,14 +87,14 @@ compute_kernel_quality{2} = @(input_kernel) compute_kernel_quality_factors(A0{2}
 
 
 % SBD settings.
-initial_iteration = 5;
-maxIT= 20;
+initial_iteration = 10;
+maxIT= 30;
 
-params.lambda1 = [1e-1,1e-1,1e-1];  % regularization parameter for Phase I
+params.lambda1 = [2e-1,2e-1,1e-1];  % regularization parameter for Phase I
 params.phase2 = true;
 params.kplus = ceil(0.5 * kernel_size);
-params.lambda2 = [5e-2, 5e-2, 5e-2];  % FINAL reg. param. value for Phase II
-params.nrefine = 200;
+params.lambda2 = [1e-2, 1e-2, 5e-2];  % FINAL reg. param. value for Phase II
+params.nrefine = 50;
 params.signflip = 0.2;
 params.xpos = true;
 params.getbias = true;
@@ -126,17 +126,21 @@ fprintf('Results saved to: %s\n', filename);
 %% Visualization of the multi-kernel results
 % Visualization of the multi-kernel results
 figure;
-
+num_kernels=size(A0,2);
+kernel_size = zeros(num_kernels,2);
+for n = 1:num_kernels
+    kernel_size(n,:) = size(A0{n});
+end
 % Loop through each kernel
-for i = 1:num_kernels
+for n = 1:num_kernels
     % Create a new figure for each kernel
     figure;
     
     % Use showims to display the results for each kernel
-    showims(Y, A0{i}, X0(:,:,i), Aout{i}, Xout(:,:,i), kernel_size(i,:), [], 1);
+    showims(Y, A0{n}, X0(:,:,n), Aout{n}, Xout(:,:,n), kernel_size(n,:), [], 1);
     
     % Add a title to each figure
-    sgtitle(['Kernel ' num2str(i) ' Results']);
+    sgtitle(['Kernel ' num2str(n) ' Results']);
 end
 
 % Display the original image and the reconstructed image
