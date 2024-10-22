@@ -31,7 +31,7 @@ end
 theta_cap = 1e-4;
 theta = theta_cap/2 + theta_cap/2 * rand(1, num_kernels);  % Generate num_kernels thetas capped by theta_cap
 
-SNR = 1.2;
+SNR = 10;
 eta = var(A0{1},0,"all")/SNR;             % additive noise variance
 
 % GENERATE
@@ -90,10 +90,10 @@ compute_kernel_quality{2} = @(input_kernel) compute_kernel_quality_factors(A0{2}
 initial_iteration = 10;
 maxIT= 30;
 
-params.lambda1 = [2e-1,2e-1,1e-1];  % regularization parameter for Phase I
+params.lambda1 = [1e-1,1e-1,1e-1];  % regularization parameter for Phase I
 params.phase2 = true;
 params.kplus = ceil(0.5 * kernel_size);
-params.lambda2 = [1e-2, 1e-2, 5e-2];  % FINAL reg. param. value for Phase II
+params.lambda2 = [5e-2, 5e-2, 5e-2];  % FINAL reg. param. value for Phase II
 params.nrefine = 50;
 params.signflip = 0.2;
 params.xpos = true;
