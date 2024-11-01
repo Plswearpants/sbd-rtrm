@@ -5,12 +5,16 @@ function visualize_overlap_regions(Xiter, k)
     % Calculate overlap regions
     IDX = calculate_overlap_regions(Xiter, k);
     
+    % Calculate subplot layout
+    num_cols = ceil(sqrt(num_kernels));
+    num_rows = ceil(num_kernels/num_cols);
+    
     % Visualize
-    figure('Position', [100, 100, 1200, 800]);
+    figure('Position', [100, 100, 200*num_cols, 200*num_rows*2]);
     
     % Plot activation regions
     for n = 1:num_kernels
-        subplot(2, 3, n);
+        subplot(2*num_rows, num_cols, n);
         
         % Create kernel of ones
         A = ones(k(n, 1), k(n, 2));
@@ -29,7 +33,7 @@ function visualize_overlap_regions(Xiter, k)
     
     % Plot overlap regions
     for n = 1:num_kernels
-        subplot(2, 3, n+3);
+        subplot(2*num_rows, num_cols, n + num_cols*num_rows);
         imagesc(Xiter(:,:,n));
         hold on;
         h = imagesc(IDX(:,:,n));

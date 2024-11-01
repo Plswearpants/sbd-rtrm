@@ -6,7 +6,7 @@ fprintf('\n\n');
 
 %% ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Create synthetic multi-kernel observation~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 %% 0. Define parameters
-num_kernels = 2;
+num_kernels = 1;
 n = 1;  % number of energy layers per kernel, default 1
 image_size  = [300, 300];
 kernel_size = zeros(num_kernels,2);
@@ -28,7 +28,7 @@ end
 
 %% 2. Activation map generation:
 %   Each pixel has probability theta of being a kernel location
-theta_cap = 1e-4;
+theta_cap = 1e-3;
 theta = theta_cap/2 + theta_cap/2 * rand(1, num_kernels);  % Generate num_kernels thetas capped by theta_cap
 
 SNR = 10;
