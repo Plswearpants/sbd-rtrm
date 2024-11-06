@@ -6,13 +6,14 @@ fprintf('\n\n');
 
 %% ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Create synthetic multi-kernel observation~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 %% 0. Define parameters
-num_kernels = 1;
+num_kernels = 2;
 n = 1;  % number of energy layers per kernel, default 1
 image_size  = [300, 300];
 kernel_size = zeros(num_kernels,2);
-kernel_size(1,:) = [50, 50];
-kernel_size(2,:) = [50, 50];
+kernel_size(1,:) = [70, 70];
+kernel_size(2,:) = [70, 70];
 %kernel_size(3,:) = [40, 40];
+%kernel_size(4,:) = [50, 50];
 
 rangetype = 'dynamic';  
 %% Initialize as simulated kernel from TB model 
@@ -28,7 +29,7 @@ end
 
 %% 2. Activation map generation:
 %   Each pixel has probability theta of being a kernel location
-theta_cap = 1e-3;
+theta_cap = 2*1e-4;
 theta = theta_cap/2 + theta_cap/2 * rand(1, num_kernels);  % Generate num_kernels thetas capped by theta_cap
 
 SNR = 10;
@@ -67,9 +68,29 @@ axis square;
 %% Initialize   
 kerneltype = 'selected';   % existing options: 'random' or 'selected'
 
-% Initialize kernels
-A1 = initialize_kernels(Y, num_kernels, kernel_size, kerneltype);
+% Initialize kernels with window option
+%window_type = {};
+ window_type = {'gaussian', 2};  % Example: gaussian window with alpha=2.5
+% Other window options:
+% window_type = 'hann';
+% window_type = 'hamming';
+% window_type = 'blackman';
+% window_type = {'kaiser', 5};
+% window_type = '';  % no window
 
+% Initialize kernels with the selected window type
+A1 = initialize_kernels(Y, num_kernels, kernel_size, kerneltype, window_type);
+
+%% Display initialized kernels
+figure;
+for n = 1:num_kernels
+    subplot(1, num_kernels, n);
+    imagesc(A1{n});
+    title(sprintf('Initial Kernel %d', n));
+    colorbar;
+    axis square;
+end
+sgtitle('Initialized Kernels');
 %% 1. Settings
 
 % A function for showing updates as RTRM runs
@@ -81,20 +102,20 @@ dispfun{2} = @(Y, A, X, kernel_size, kplus) showims(Y,A0{2},X0(:,:,2),A,X,kernel
 %dispfun{3} = @(Y, A, X, kernel_size, kplus) showims(Y,A0{3},X0(:,:,3),A,X,kernel_size,kplus,1);
 % Create a function handle for compute_kernel_quality_factors
 compute_kernel_quality = cell(1,num_kernels);
-compute_kernel_quality{1} = @(input_kernel) compute_kernel_quality_factors(A0{1}, input_kernel);
-compute_kernel_quality{2} = @(input_kernel) compute_kernel_quality_factors(A0{2}, input_kernel);
+compute_kernel_quality{1} = @(input_kernel) compute_kernel_quality_factors(A0{1}, input_kernel,eta);
+compute_kernel_quality{2} = @(input_kernel) compute_kernel_quality_factors(A0{2}, input_kernel,eta);
 %compute_kernel_quality{3} = @(input_kernel) compute_kernel_quality_factors(A0{3}, input_kernel);
 
 
 % SBD settings.
-initial_iteration = 10;
+initial_iteration = 5;
 maxIT= 30;
 
 params.lambda1 = [1e-1,1e-1,1e-1];  % regularization parameter for Phase I
 params.phase2 = true;
 params.kplus = ceil(0.5 * kernel_size);
 params.lambda2 = [5e-2, 5e-2, 5e-2];  % FINAL reg. param. value for Phase II
-params.nrefine = 50;
+params.nrefine = 3;
 params.signflip = 0.2;
 params.xpos = true;
 params.getbias = true;
