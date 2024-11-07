@@ -102,20 +102,20 @@ dispfun{2} = @(Y, A, X, kernel_size, kplus) showims(Y,A0{2},X0(:,:,2),A,X,kernel
 %dispfun{3} = @(Y, A, X, kernel_size, kplus) showims(Y,A0{3},X0(:,:,3),A,X,kernel_size,kplus,1);
 % Create a function handle for compute_kernel_quality_factors
 compute_kernel_quality = cell(1,num_kernels);
-compute_kernel_quality{1} = @(input_kernel) compute_kernel_quality_factors(A0{1}, input_kernel,eta);
-compute_kernel_quality{2} = @(input_kernel) compute_kernel_quality_factors(A0{2}, input_kernel,eta);
+compute_kernel_quality{1} = @(input_kernel) compute_kernel_quality_factors(A0{1}, input_kernel, eta);
+compute_kernel_quality{2} = @(input_kernel) compute_kernel_quality_factors(A0{2}, input_kernel, eta);
 %compute_kernel_quality{3} = @(input_kernel) compute_kernel_quality_factors(A0{3}, input_kernel);
 
 
 % SBD settings.
 initial_iteration = 5;
-maxIT= 30;
+maxIT= 20;
 
 params.lambda1 = [1e-1,1e-1,1e-1];  % regularization parameter for Phase I
 params.phase2 = true;
 params.kplus = ceil(0.5 * kernel_size);
 params.lambda2 = [5e-2, 5e-2, 5e-2];  % FINAL reg. param. value for Phase II
-params.nrefine = 3;
+params.nrefine = 10;
 params.signflip = 0.2;
 params.xpos = true;
 params.getbias = true;

@@ -89,14 +89,16 @@ for iter = 1:maxIT
             Y_residual = Y_residual - convfft2(A{m}, Xiter(:,:,m));
         end
     end
-
+    
     % Update each kernel
     for n = 1:kernel_num
+        % Calculate Yiter for this kernel
         Yiter = Y_residual + (iter > 1) * convfft2(A{n}, Xiter(:,:,n));
+        
         dispfun1 = @(A, X) dispfun{n}(Y, A, X, k(n,:), []);
         
         if iter == 1
-            % Initial X computation (previously in Phase 0)
+            % Initial X computation
             X_struct.(['x',num2str(n)]) = Xsolve_FISTA_tunable(Y, A{n}, lambda1(n), mu, [], xpos);
         end
         
@@ -104,9 +106,6 @@ for iter = 1:maxIT
         
         Xiter(:,:,n) = X_struct.(['x',num2str(n)]).X;
         biter(n) = X_struct.(['x',num2str(n)]).b;
-        
-        % Compute kernel quality factor
-        kernel_quality_factors(iter, n) = compute_kernel_quality{n}(A{n});
     end
 
     % Compute observation quality factor
