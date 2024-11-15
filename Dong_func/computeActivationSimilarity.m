@@ -46,15 +46,15 @@ function [similarity, filtered_maps] = computeActivationSimilarity(X0, Xout, ker
         filtered_maps(k).L = L;
         filtered_maps(k).density = density;
         
-        % Print results for this kernel
-        fprintf('Kernel %d:\n', k);
-        fprintf('  Similarity: %.3f\n', similarity(k));
-        fprintf('  Density: %.2e\n', density);
-        fprintf('  L: %.1f pixels (isolation length)\n', L);
-        fprintf('  σ: %.1f pixels (filter width)\n\n', sigma);
-        
         % Visualize if requested
         if visualize
+            % Print results for this kernel
+            fprintf('Kernel %d:\n', k);
+            fprintf('  Similarity: %.3f\n', similarity(k));
+            fprintf('  Density: %.2e\n', density);
+            fprintf('  L: %.1f pixels (isolation length)\n', L);
+            fprintf('  σ: %.1f pixels (filter width)\n\n', sigma);
+        
             visualizeSimilarityAnalysis(X0(:,:,k), Xout(:,:,k), ...
                 X0_filtered, Xout_filtered, gaussian_kernel, ...
                 similarity(k), sigma, L, density, k, num_kernels);
@@ -85,49 +85,51 @@ end
 
 function visualizeSimilarityAnalysis(X0, Xout, X0_filtered, Xout_filtered, ...
                                    gaussian_kernel, similarity, sigma, L, density, ...
-                                   k, num_kernels)
-    % Create figure for first kernel or if only one kernel
-    if k == 1 || num_kernels == 1
-        figure('Name', 'Activation Similarity Analysis', ...
+                                   k, num_kernels, visualize)
+    % Create figure for first kernel or if only one kernel if visualize is true
+    if visualize
+        if k == 1 || num_kernels == 1
+            figure('Name', 'Activation Similarity Analysis', ...
                'Position', [100, 100, 1200, 300*num_kernels]);
+        end
+        
+        % Calculate subplot positions
+        base_idx = (k-1)*6;
+        
+        % Original maps
+        subplot(num_kernels,6,base_idx + 1);
+        imagesc(X0);
+        title(sprintf('K%d: Original X0', k));
+        colorbar; axis square;
+        
+        subplot(num_kernels,6,base_idx + 2);
+        imagesc(Xout);
+        title(sprintf('K%d: Reconstructed', k));
+        colorbar; axis square;
+        
+        % Gaussian kernel
+        subplot(num_kernels,6,base_idx + 3);
+        surf(gaussian_kernel);
+        title(sprintf('K%d: Filter\nσ=%.1f, L=%.1f', k, sigma, L));
+        axis square;
+        
+        % Filtered maps
+        subplot(num_kernels,6,base_idx + 4);
+        imagesc(X0_filtered);
+        title(sprintf('K%d: Filtered X0', k));
+        colorbar; axis square;
+        
+        subplot(num_kernels,6,base_idx + 5);
+        imagesc(Xout_filtered);
+        title(sprintf('K%d: Filtered Xout', k));
+        colorbar; axis square;
+        
+        % Difference
+        subplot(num_kernels,6,base_idx + 6);
+        imagesc(X0_filtered - Xout_filtered);
+        title(sprintf('K%d: Diff\nSim=%.3f', k, similarity));
+        colorbar; axis square;
     end
-    
-    % Calculate subplot positions
-    base_idx = (k-1)*6;
-    
-    % Original maps
-    subplot(num_kernels,6,base_idx + 1);
-    imagesc(X0);
-    title(sprintf('K%d: Original X0', k));
-    colorbar; axis square;
-    
-    subplot(num_kernels,6,base_idx + 2);
-    imagesc(Xout);
-    title(sprintf('K%d: Reconstructed', k));
-    colorbar; axis square;
-    
-    % Gaussian kernel
-    subplot(num_kernels,6,base_idx + 3);
-    surf(gaussian_kernel);
-    title(sprintf('K%d: Filter\nσ=%.1f, L=%.1f', k, sigma, L));
-    axis square;
-    
-    % Filtered maps
-    subplot(num_kernels,6,base_idx + 4);
-    imagesc(X0_filtered);
-    title(sprintf('K%d: Filtered X0', k));
-    colorbar; axis square;
-    
-    subplot(num_kernels,6,base_idx + 5);
-    imagesc(Xout_filtered);
-    title(sprintf('K%d: Filtered Xout', k));
-    colorbar; axis square;
-    
-    % Difference
-    subplot(num_kernels,6,base_idx + 6);
-    imagesc(X0_filtered - Xout_filtered);
-    title(sprintf('K%d: Diff\nSim=%.3f', k, similarity));
-    colorbar; axis square;
 end
 
 function plotSimilaritySummary(similarity, filtered_maps)

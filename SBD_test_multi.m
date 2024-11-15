@@ -64,20 +64,27 @@ end
 
 kernel_num = size(k,1);
 mu = 10^-6;
-compute_kernel_quality = params.compute_kernel_quality;  % Extract the function handle
 % Update the configuration file with the new max_iteration
 update_config('Xsolve_config.mat', 'MAXIT', AX_iteration, 'Xsolve_config_tunable.mat');
 update_config('Asolve_config.mat','options.maxiter', AX_iteration, 'Asolve_config_tunable.mat');
 
+% Extract X0 and A0 from params
+if ~isfield(params, 'X0') || ~isfield(params, 'A0')
+    error('params must contain X0 and A0 for quality metrics');
+end
+X0 = params.X0;
+A0 = params.A0;
+
 %% Phase I: Initialization and First Iteration
 fprintf('PHASE I: Initialization and First Iteration\n');
-
 A = kernel_initialguess;
 X_struct = struct();
 Xiter = zeros([size(Y),kernel_num]);
 biter = zeros(kernel_num,1);
-kernel_quality_factors = zeros(maxIT,kernel_num);
-observation_quality_factors = zeros(maxIT, 1);
+
+% Initialize quality metrics arrays in extras
+extras.phase1.activation_metrics = cell(1, maxIT);
+extras.phase1.kernel_quality_factors = zeros(maxIT, kernel_num);
 
 for iter = 1:maxIT
     starttime = tic;
@@ -108,20 +115,16 @@ for iter = 1:maxIT
         biter(n) = X_struct.(['x',num2str(n)]).b;
     end
 
-    % Compute observation quality factor
-    Yiter_combined = sum(Yiter, 3) - (kernel_num-1)*Y_residual;
-    observation_quality_factors(iter) = var(Y(:) - Yiter_combined(:));
-
+    % Evaluate metrics for this iteration
+    [activation_metrics, kernel_metrics] = computeQualityMetrics(X0, Xiter, A0, A, k);
+    extras.phase1.activation_metrics{iter} = activation_metrics;
+    extras.phase1.kernel_quality_factors(iter,:) = kernel_metrics;
+    
     runtime = toc(starttime);
-    fprintf('Iteration %d: Runtime = %.2fs, Observation Quality Factor = %.8e\n', iter, runtime, observation_quality_factors(iter));
-    for n = 1:kernel_num
-        fprintf('Kernel %d Quality Factor = %.8e\n', n, kernel_quality_factors(iter, n));
-    end
+    fprintf('Iteration %d: Runtime = %.2fs\n', iter, runtime);
 end
 
-% Store results and quality factors
-extras.phase1.observation_quality_factors = observation_quality_factors;
-extras.phase1.kernel_quality_factors = kernel_quality_factors;
+% Store results
 extras.phase1.Aout = A;
 extras.phase1.Xout = Xiter;
 extras.phase1.biter = biter;
@@ -142,9 +145,9 @@ if params.phase2
     lambda = lambda1;
     lam2fac = (lambda2./lambda1).^(1/nrefine);
     
-    % Initialize quality factor arrays for Phase II
-    Phase2_Kernel_quality_factors = zeros(nrefine + 1, kernel_num);
-    Phase2_Observation_quality_factors = zeros(nrefine + 1, 1);
+    % Initialize Phase II quality metrics
+    extras.phase2.activation_metrics = cell(1, nrefine + 1);
+    extras.phase2.kernel_quality_factors = zeros(nrefine + 1, kernel_num);
     
     for i = 1:nrefine + 1
         fprintf('lambda iteration %d/%d: \n', i, nrefine + 1);
@@ -182,29 +185,34 @@ if params.phase2
             extras.phase2.X{n} = X2_struct.(['x',num2str(n)]).X;
             extras.phase2.b(n) = X2_struct.(['x',num2str(n)]).b;
             extras.phase2.info{n} = info;
-
-            % Compute kernel quality factor
-            Phase2_Kernel_quality_factors(i, n) = compute_kernel_quality{n}(A2{n}(kplus(n,1)+(1:k(n,1)), kplus(n,2)+(1:k(n,2))));
         end
         
-        % Compute observation quality factor
-        Yiter_combined = Y;
-        for m = 1:kernel_num
-            Yiter_combined = Yiter_combined - convfft2(A2{m}, X2_struct.(['x',num2str(m)]).X);
-        end
-        Phase2_Observation_quality_factors(i) = var(Yiter_combined(:));
-
-        fprintf('Iteration %d: Observation Quality Factor = %.8e\n', i, Phase2_Observation_quality_factors(i));
+        % Evaluate metrics for this refinement
+        % 1. Activation reconstruction quality
+        X2_combined = zeros(size(Y,1), size(Y,2), kernel_num);
+        A2_central = cell(1, kernel_num);
         for n = 1:kernel_num
-            fprintf('Kernel %d Quality Factor = %.8e\n', n, Phase2_Kernel_quality_factors(i, n));
+            X2_combined(:,:,n) = X2_struct.(['x',num2str(n)]).X;
+            A2_central{n} = A2{n}(kplus(n,1)+(1:k(n,1)), kplus(n,2)+(1:k(n,2)));
+        end
+
+        [activation_metrics, kernel_metrics] = computeQualityMetrics(X0, X2_combined, A0, A2_central, k3);
+        extras.phase2.activation_metrics{i} = activation_metrics;
+        extras.phase2.kernel_quality_factors(i,:) = kernel_metrics;
+        
+        % Print results
+        fprintf('Refinement %d Metrics:\n', i);
+        fprintf('Activation Quality:\n');
+        for n = 1:kernel_num
+            fprintf('Kernel %d - Activation Similarity: %.3f\n', n, activation_metrics.similarity(n));
+        end
+        fprintf('Kernel Quality Factors:\n');
+        for n = 1:kernel_num
+            fprintf('Kernel %d: %.3f\n', n, kernel_metrics(n));
         end
         
         lambda = lambda .* lam2fac;
     end
-
-    % Store quality factors in extras
-    extras.phase2.observation_quality_factors = Phase2_Observation_quality_factors;
-    extras.phase2.kernel_quality_factors = Phase2_Kernel_quality_factors;
 
 end
 
@@ -243,31 +251,51 @@ end
 function visualize_quality_factors(extras, phase2_performed, maxIT, nrefine, kernel_num)
     figure;
 
-    % Plot Observation Quality Factor
+    % Plot Activation Similarity
     subplot(2,1,1);
-    semilogy(1:maxIT, extras.phase1.observation_quality_factors, 'b-', 'DisplayName', 'Phase I');
-    hold on;
+    similarities_phase1 = zeros(maxIT, kernel_num);
+    for i = 1:maxIT
+        similarities_phase1(i,:) = extras.phase1.activation_metrics{i}.similarity;
+    end
+    
+    colors = lines(kernel_num);
+    for n = 1:kernel_num
+        plot(1:maxIT, similarities_phase1(:,n), 'Color', colors(n,:), 'LineStyle', '-', ...
+            'DisplayName', sprintf('Phase I Kernel %d', n));
+        hold on;
+    end
+    
     if phase2_performed
-        semilogy(maxIT:maxIT+nrefine, extras.phase2.observation_quality_factors, 'r-', 'DisplayName', 'Phase II');
+        similarities_phase2 = zeros(nrefine+1, kernel_num);
+        for i = 1:nrefine+1
+            similarities_phase2(i,:) = [extras.phase2.activation_metrics{i}.similarity];
+        end
+        
+        for n = 1:kernel_num
+            plot(maxIT:maxIT+nrefine, similarities_phase2(:,n), 'Color', colors(n,:), ...
+                'LineStyle', ':', 'DisplayName', sprintf('Phase II Kernel %d', n));
+        end
     end
     xlabel('Iteration');
-    ylabel('Observation Quality Factor');
-    title('Observation Quality Factor vs. Iteration');
+    ylabel('Activation Similarity');
+    title('Activation Reconstruction Quality vs. Iteration');
     legend('show');
     grid on;
     hold off;
 
     % Plot Kernel Quality Factors
     subplot(2,1,2);
-    colors = lines(kernel_num); % Generate a set of distinct colors
-
     for n = 1:kernel_num
-        semilogy(1:maxIT, extras.phase1.kernel_quality_factors(:,n), 'Color', colors(n,:), 'LineStyle', '-', 'DisplayName', sprintf('Phase I Kernel %d', n));
+        plot(1:maxIT, extras.phase1.kernel_quality_factors(:,n), 'Color', colors(n,:), ...
+            'LineStyle', '-', 'DisplayName', sprintf('Phase I Kernel %d', n));
         hold on;
     end
+    
     if phase2_performed
         for n = 1:kernel_num
-            semilogy(maxIT:maxIT+nrefine, extras.phase2.kernel_quality_factors(:,n), 'Color', colors(n,:), 'LineStyle', ':', 'DisplayName', sprintf('Phase II Kernel %d', n));
+            plot(maxIT:maxIT+nrefine, extras.phase2.kernel_quality_factors(:,n), ...
+                'Color', colors(n,:), 'LineStyle', ':', ...
+                'DisplayName', sprintf('Phase II Kernel %d', n));
         end
     end
     xlabel('Iteration');

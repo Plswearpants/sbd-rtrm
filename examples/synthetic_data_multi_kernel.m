@@ -12,7 +12,7 @@ image_size  = [300, 300];
 kernel_size = zeros(num_kernels,2);
 kernel_size(1,:) = [70, 70];
 kernel_size(2,:) = [70, 70];
-%kernel_size(3,:) = [40, 40];
+%kernel_size(3,:) = [50, 50];
 %kernel_size(4,:) = [50, 50];
 
 rangetype = 'dynamic';  
@@ -21,11 +21,24 @@ rangetype = 'dynamic';
 load('example_data/LDoS_sim.mat');
 sliceidx = randperm(size(LDoS_sim,3), num_kernels);
 A0 = cell(1,num_kernels);
+
+% Store noiseless version for comparison
+A0_noiseless = cell(1,num_kernels);
+
+SNR = 10;  % Already defined above
 for n = 1:num_kernels
-    A0{n} = imresize(LDoS_sim(:,:,sliceidx(n)), kernel_size(n,:));
+    A0_noiseless{n} = imresize(LDoS_sim(:,:,sliceidx(n)), kernel_size(n,:));
     % Need to put each slice back onto the sphere
-    A0{n} = proj2oblique(A0{n});
+    A0_noiseless{n} = proj2oblique(A0_noiseless{n});
+    
+    % Create noisy version with same SNR as observation
+    eta_kernel = var(A0_noiseless{n},0,"all")/SNR;  % noise variance for this kernel
+    A0{n} = A0_noiseless{n} + sqrt(eta_kernel)*randn(size(A0_noiseless{n}));
+    A0{n} = proj2oblique(A0{n});  % Project back to sphere after adding noise
 end
+
+% Now A0 contains noisy kernels matching the SNR of the observation
+% A0_noiseless contains the original clean kernels if needed for comparison
 
 %% 2. Activation map generation:
 %   Each pixel has probability theta of being a kernel location
@@ -100,31 +113,29 @@ dispfun = cell(1,num_kernels);
 dispfun{1} = @(Y, A, X, kernel_size, kplus) showims(Y,A0{1},X0(:,:,1),A,X,kernel_size,kplus,1); % here the last entry in the showims function is the energy layer index n. 
 dispfun{2} = @(Y, A, X, kernel_size, kplus) showims(Y,A0{2},X0(:,:,2),A,X,kernel_size,kplus,1);
 %dispfun{3} = @(Y, A, X, kernel_size, kplus) showims(Y,A0{3},X0(:,:,3),A,X,kernel_size,kplus,1);
-% Create a function handle for compute_kernel_quality_factors
-compute_kernel_quality = cell(1,num_kernels);
-compute_kernel_quality{1} = @(input_kernel) compute_kernel_quality_factors(A0{1}, input_kernel, eta);
-compute_kernel_quality{2} = @(input_kernel) compute_kernel_quality_factors(A0{2}, input_kernel, eta);
-%compute_kernel_quality{3} = @(input_kernel) compute_kernel_quality_factors(A0{3}, input_kernel);
-
 
 % SBD settings.
-initial_iteration = 5;
-maxIT= 20;
+initial_iteration = 3;
+maxIT= 50;
 
-params.lambda1 = [1e-1,1e-1,1e-1];  % regularization parameter for Phase I
+params.lambda1 = [5e-2, 5e-2,1e-1];  % regularization parameter for Phase I
 params.phase2 = true;
 params.kplus = ceil(0.5 * kernel_size);
-params.lambda2 = [5e-2, 5e-2, 5e-2];  % FINAL reg. param. value for Phase II
-params.nrefine = 10;
+params.lambda2 = [1e-2, 1e-2, 5e-2];  % FINAL reg. param. value for Phase II
+params.nrefine = 3;
 params.signflip = 0.2;
 params.xpos = true;
 params.getbias = true;
 params.Xsolve = 'FISTA';
-params.compute_kernel_quality = compute_kernel_quality;  % Add the function handle to params
+
+% this is for the test phase only:
+params.X0 = X0;
+params.A0 = A0;
 
 %% Run and save 
 % 2. The fun part
 [Aout, Xout, bout, extras] = SBD_test_multi(Y, kernel_size, params, dispfun, A1, initial_iteration, maxIT);
+%[Aout, Xout, bout, extras] = SBD_test_multi_demixing_attempt(Y, kernel_size, params, dispfun, A1, initial_iteration, maxIT);
 
 % Save the result
 
@@ -202,3 +213,6 @@ psnr = 10 * log10(max(Y(:,:,1), [], 'all')^2 / mse);
 
 fprintf('Mean Squared Error: %f\n', mse);
 fprintf('Peak Signal-to-Noise Ratio: %f dB\n', psnr);
+
+figure;
+evaluateActivationReconstruction(X0, Xout, kernel_size, 1);
