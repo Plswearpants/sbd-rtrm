@@ -1,22 +1,13 @@
-function [Xout_aligned, offset, quality] = alignActivationMaps(X0, Xout, kernel_size, visualize)
+function [Xout_aligned, offset, quality] = alignActivationMaps(X0, Xout, kernel_size)
     % Input:
     %   X0: original activation maps [height x width x num_kernels]
     %   Xout: reconstructed activation maps [height x width x num_kernels]
     %   kernel_size: size of each kernel [num_kernels x 2]
     %   visualize: (optional) boolean for visualization
     
-    if nargin < 4
-        visualize = false;
-    end
-    
     num_kernels = size(X0, 3);
     Xout_aligned = zeros(size(Xout));
     offset = zeros(num_kernels, 2);
-    
-    % Create figure for visualizations if requested 
-    if visualize
-        fig = figure('Name', 'Activation Maps Alignment');
-    end
     
     for k = 1:num_kernels
         % Broaden activation maps with Gaussian window
@@ -67,42 +58,6 @@ function [Xout_aligned, offset, quality] = alignActivationMaps(X0, Xout, kernel_
         quality(k).mean_correlation = mean(c(:));
         quality(k).peak_sharpness = max_corr / quality(k).mean_correlation;
         
-        if visualize
-            % Print quality metrics with interpretations
-            fprintf('\nProcessing Kernel %d:\n', k);
-            fprintf('Kernel %d Quality Metrics:\n', k);
-            fprintf('  Pattern Match: %.3f  (1 = perfect match)\n', quality(k).primary_peak);
-            fprintf('  Uniqueness: %.3f     (1 = single solution)\n', 1 - quality(k).peak_ratio);
-            fprintf('  Precision: %.3f      (>1 = precise alignment)\n', quality(k).peak_sharpness);
-            fprintf('  Offset: [%d, %d]\n\n', offset(k,1), offset(k,2));
-            
-            % Visualize initial, aligned, and original activation maps
-            subplot(num_kernels, 3, 3*(k-1) + 1);
-            imagesc(Xout(:,:,k));
-            title(sprintf('K%d: Initial Xout', k));
-            colorbar;
-            axis square;
-
-            subplot(num_kernels, 3, 3*(k-1) + 2);
-            imagesc(Xout_aligned(:,:,k));
-            title(sprintf('K%d: Aligned Xout\nMatch: %.2f | Unique: %.2f | Precise: %.2f', ...
-                k, quality(k).primary_peak, ...    % How well patterns match
-                1 - quality(k).peak_ratio, ...     % Inverted for intuition (1 = unique)
-                quality(k).peak_sharpness));       % How precise the alignment is
-            colorbar;
-            axis square;
-
-            subplot(num_kernels, 3, 3*(k-1) + 3);
-            imagesc(X0(:,:,k));
-            title(sprintf('K%d: Original X0', k));
-            colorbar;
-            axis square;
-        end
     end
-    
-    % Adjust figure layout if requested
-    if visualize
-        set(fig, 'Position', [100, 100, 1200, 300*num_kernels]);
-        sgtitle('Activation Maps Alignment (Initial → Aligned → Original)');
-    end
+
 end 

@@ -47,17 +47,10 @@ function [similarity, filtered_maps] = computeActivationSimilarity(X0, Xout, ker
         filtered_maps(k).density = density;
         
         % Visualize if requested
-        if visualize
-            % Print results for this kernel
-            fprintf('Kernel %d:\n', k);
-            fprintf('  Similarity: %.3f\n', similarity(k));
-            fprintf('  Density: %.2e\n', density);
-            fprintf('  L: %.1f pixels (isolation length)\n', L);
-            fprintf('  σ: %.1f pixels (filter width)\n\n', sigma);
-        
+        if visualize       
             visualizeSimilarityAnalysis(X0(:,:,k), Xout(:,:,k), ...
                 X0_filtered, Xout_filtered, gaussian_kernel, ...
-                similarity(k), sigma, L, density, k, num_kernels);
+                similarity(k), sigma, L, density, k, num_kernels, visualize);
         end
     end
     

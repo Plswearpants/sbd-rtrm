@@ -26,6 +26,9 @@ function [ Aout, Xout, bout, extras ] = SBD_test_multi_demixing( Y, k, params, d
     %   k: n*2 matrix containing a list of n different kernel sizes [x,y]. 
     %   kernel_initialguess: cell array containing different intial guess of kernel 
     
+    %% Start timing for the whole process
+    total_starttime = tic;
+    
     %% Process input arguments
     if nargin < 4 || isempty(dispfun)
         dispfun = @(Y,A,X,k,kplus,idx) 0;
@@ -70,7 +73,7 @@ function [ Aout, Xout, bout, extras ] = SBD_test_multi_demixing( Y, k, params, d
     X0 = params.X0;
     A0 = params.A0;
     
-    %% Phase I: Initialization and First Iteration
+    %% Phase I: Initialization and First Iteration with demixing applied
     fprintf('PHASE I: Initialization and First Iteration\n');
     A = kernel_initialguess;
     X_struct = struct();
@@ -78,16 +81,16 @@ function [ Aout, Xout, bout, extras ] = SBD_test_multi_demixing( Y, k, params, d
     biter = zeros(kernel_num,1);
     
     % Initialize quality metrics arrays in extras
-    extras.phase1.activation_metrics = cell(1, maxIT);
+    extras.phase1.activation_metrics = zeros(maxIT, kernel_num);
     extras.phase1.kernel_quality_factors = zeros(maxIT, kernel_num);
     
-    % Add demixing factor (only for Phase I)
+    % Add demixing factor
     faint_factor = 1;
     
     for iter = 1:maxIT
-        starttime = tic;
+        iter_starttime = tic;
     
-        % Compute Y_background using demixing approach
+        % Compute Y_background (changed to demixing approach)
         Y_sum = zeros(size(Y));
         for m = 1:kernel_num
             if iter > 1
@@ -96,9 +99,9 @@ function [ Aout, Xout, bout, extras ] = SBD_test_multi_demixing( Y, k, params, d
         end
         Y_residual = Y - Y_sum;
         
-        % Update each kernel with demixing
+        % Update each kernel
         for n = 1:kernel_num
-            % Calculate Yiter for this kernel using demixing approach
+            % Calculate Yiter for this kernel (changed to demixing approach)
             Yiter = Y_residual + (iter > 1) * (1-1/(faint_factor*iter+1))*convfft2(A{n}, Xiter(:,:,n)) + (1/(faint_factor*iter+1))*Y_sum;
             
             dispfun1 = @(A, X) dispfun{n}(Y, A, X, k(n,:), []);
@@ -115,12 +118,12 @@ function [ Aout, Xout, bout, extras ] = SBD_test_multi_demixing( Y, k, params, d
         end
     
         % Keep the same quality metrics computation
-        [activation_metrics, kernel_metrics] = computeQualityMetrics(X0, Xiter, A0, A, k);
-        extras.phase1.activation_metrics{iter} = activation_metrics;
-        extras.phase1.kernel_quality_factors(iter,:) = kernel_metrics;
+        [activation_similarity, kernel_similarity] = computeQualityMetrics(X0, Xiter, A0, A, k);
+        extras.phase1.activation_metrics(iter,:) = activation_similarity;
+        extras.phase1.kernel_quality_factors(iter,:) = kernel_similarity;
         
-        runtime = toc(starttime);
-        fprintf('Iteration %d: Runtime = %.2fs\n', iter, runtime);
+        iter_runtime = toc(iter_starttime);
+        fprintf('Iteration %d: Runtime = %.2fs\n', iter, iter_runtime);
     end
     
     % Store results
@@ -128,9 +131,9 @@ function [ Aout, Xout, bout, extras ] = SBD_test_multi_demixing( Y, k, params, d
     extras.phase1.Xout = Xiter;
     extras.phase1.biter = biter;
     
-    %% PHASE II: Refinement (if requested) - Using original approach without demixing
+    %% PHASE II: Lift the sphere and do lambda continuation
     if params.phase2
-        fprintf('\nPHASE II: Refinement\n');
+        fprintf('\n\nPHASE II: \n=========\n');
         k3 = k + 2*kplus;
     
         A2 = cell(1, kernel_num);
@@ -145,7 +148,7 @@ function [ Aout, Xout, bout, extras ] = SBD_test_multi_demixing( Y, k, params, d
         lam2fac = (lambda2./lambda1).^(1/nrefine);
         
         % Initialize Phase II metrics
-        extras.phase2.activation_metrics = cell(1, nrefine + 1);
+        extras.phase2.activation_metrics = zeros(nrefine + 1, kernel_num);
         extras.phase2.kernel_quality_factors = zeros(nrefine + 1, kernel_num);
         
         for i = 1:nrefine + 1
@@ -196,19 +199,19 @@ function [ Aout, Xout, bout, extras ] = SBD_test_multi_demixing( Y, k, params, d
                 A2_central{n} = A2{n}(kplus(n,1)+(1:k(n,1)), kplus(n,2)+(1:k(n,2)));
             end
     
-            [activation_metrics, kernel_metrics] = computeQualityMetrics(X0, X2_combined, A0, A2_central, k3);
-            extras.phase2.activation_metrics{i} = activation_metrics;
-            extras.phase2.kernel_quality_factors(i,:) = kernel_metrics;
+            [activation_similarity, kernel_similarity] = computeQualityMetrics(X0, X2_combined, A0, A2_central, k3);
+            extras.phase2.activation_metrics(i,:) = activation_similarity;
+            extras.phase2.kernel_quality_factors(i,:) = kernel_similarity;
             
             % Print results
             fprintf('Refinement %d Metrics:\n', i);
             fprintf('Activation Quality:\n');
             for n = 1:kernel_num
-                fprintf('Kernel %d - Similarity: %.3f\n', n, activation_metrics(n));
+                fprintf('Kernel %d - Similarity: %.3f\n', n, activation_similarity(n));
             end
             fprintf('Kernel Quality Factors:\n');
             for n = 1:kernel_num
-                fprintf('Kernel %d: %.3f\n', n, kernel_metrics(n));
+                fprintf('Kernel %d: %.3f\n', n, kernel_similarity(n));
             end
             
             lambda = lambda .* lam2fac;
@@ -239,67 +242,10 @@ function [ Aout, Xout, bout, extras ] = SBD_test_multi_demixing( Y, k, params, d
         bout = biter;
     end
     
-    runtime = toc(starttime);
-    fprintf('\nDone! Runtime = %.2fs. \n\n', runtime);
+    %% Final timing
+    total_runtime = toc(total_starttime);
+    fprintf('\nTotal Runtime = %.2fs\n\n', total_runtime);
     
-    % Call the visualization function
-    visualize_quality_factors(extras, params.phase2, maxIT, nrefine, kernel_num);
-    end
-    
-    function visualize_quality_factors(extras, phase2_performed, maxIT, nrefine, kernel_num)
-        figure;
-    
-        % Plot Activation Similarity
-        subplot(2,1,1);
-        similarities_phase1 = zeros(maxIT, kernel_num);
-        for i = 1:maxIT
-            similarities_phase1(i,:) = extras.phase1.activation_metrics{i};
-        end
-        
-        colors = lines(kernel_num);
-        for n = 1:kernel_num
-            plot(1:maxIT, similarities_phase1(:,n), 'Color', colors(n,:), 'LineStyle', '-', ...
-                'DisplayName', sprintf('Phase I Kernel %d', n));
-            hold on;
-        end
-        
-        if phase2_performed
-            similarities_phase2 = zeros(nrefine+1, kernel_num);
-            for i = 1:nrefine+1
-                similarities_phase2(i,:) = extras.phase2.activation_metrics{i};
-            end
-            
-            for n = 1:kernel_num
-                plot(maxIT:maxIT+nrefine, similarities_phase2(:,n), 'Color', colors(n,:), ...
-                    'LineStyle', ':', 'DisplayName', sprintf('Phase II Kernel %d', n));
-            end
-        end
-        xlabel('Iteration');
-        ylabel('Activation Similarity');
-        title('Activation Reconstruction Quality vs. Iteration');
-        legend('show');
-        grid on;
-        hold off;
-    
-        % Plot Kernel Quality Factors
-        subplot(2,1,2);
-        for n = 1:kernel_num
-            plot(1:maxIT, extras.phase1.kernel_quality_factors(:,n), 'Color', colors(n,:), ...
-                'LineStyle', '-', 'DisplayName', sprintf('Phase I Kernel %d', n));
-            hold on;
-        end
-        
-        if phase2_performed
-            for n = 1:kernel_num
-                plot(maxIT:maxIT+nrefine, extras.phase2.kernel_quality_factors(:,n), ...
-                    'Color', colors(n,:), 'LineStyle', ':', ...
-                    'DisplayName', sprintf('Phase II Kernel %d', n));
-            end
-        end
-        xlabel('Iteration');
-        ylabel('Kernel Quality Factor');
-        title('Kernel Quality Factors vs. Iteration');
-        legend('show');
-        grid on;
-        hold off;
-    end
+    % Store runtime in extras
+    extras.runtime = total_runtime;
+end

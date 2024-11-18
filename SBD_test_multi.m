@@ -75,6 +75,9 @@ end
 X0 = params.X0;
 A0 = params.A0;
 
+%% Start timing for the whole process
+total_starttime = tic;
+
 %% Phase I: Initialization and First Iteration
 fprintf('PHASE I: Initialization and First Iteration\n');
 A = kernel_initialguess;
@@ -83,11 +86,11 @@ Xiter = zeros([size(Y),kernel_num]);
 biter = zeros(kernel_num,1);
 
 % Initialize quality metrics arrays in extras
-extras.phase1.activation_metrics = cell(1, maxIT);
+extras.phase1.activation_metrics = zeros(maxIT, kernel_num);
 extras.phase1.kernel_quality_factors = zeros(maxIT, kernel_num);
 
 for iter = 1:maxIT
-    starttime = tic;
+    iter_starttime = tic;  % Time each iteration separately if needed
 
     % Compute Y_background
     Y_residual = Y;
@@ -116,12 +119,12 @@ for iter = 1:maxIT
     end
 
     % Evaluate metrics for this iteration
-    [activation_metrics, kernel_metrics] = computeQualityMetrics(X0, Xiter, A0, A, k);
-    extras.phase1.activation_metrics{iter} = activation_metrics;
-    extras.phase1.kernel_quality_factors(iter,:) = kernel_metrics;
+    [activation_similarity, kernel_similarity] = computeQualityMetrics(X0, Xiter, A0, A, k);
+    extras.phase1.activation_metrics(iter,:) = activation_similarity;
+    extras.phase1.kernel_quality_factors(iter,:) = kernel_similarity;
     
-    runtime = toc(starttime);
-    fprintf('Iteration %d: Runtime = %.2fs\n', iter, runtime);
+    iter_runtime = toc(iter_starttime);
+    fprintf('Iteration %d: Runtime = %.2fs\n', iter, iter_runtime);
 end
 
 % Store results
@@ -146,7 +149,7 @@ if params.phase2
     lam2fac = (lambda2./lambda1).^(1/nrefine);
     
     % Initialize Phase II quality metrics
-    extras.phase2.activation_metrics = cell(1, nrefine + 1);
+    extras.phase2.activation_metrics = zeros(nrefine + 1, kernel_num);
     extras.phase2.kernel_quality_factors = zeros(nrefine + 1, kernel_num);
     
     for i = 1:nrefine + 1
@@ -196,19 +199,19 @@ if params.phase2
             A2_central{n} = A2{n}(kplus(n,1)+(1:k(n,1)), kplus(n,2)+(1:k(n,2)));
         end
 
-        [activation_metrics, kernel_metrics] = computeQualityMetrics(X0, X2_combined, A0, A2_central, k3);
-        extras.phase2.activation_metrics{i} = activation_metrics;
-        extras.phase2.kernel_quality_factors(i,:) = kernel_metrics;
+        [activation_similarity, kernel_similarity] = computeQualityMetrics(X0, X2_combined, A0, A2_central, k3);
+        extras.phase2.activation_metrics(i,:) = activation_similarity;
+        extras.phase2.kernel_quality_factors(i,:) = kernel_similarity;
         
         % Print results
         fprintf('Refinement %d Metrics:\n', i);
         fprintf('Activation Quality:\n');
         for n = 1:kernel_num
-            fprintf('Kernel %d - Activation Similarity: %.3f\n', n, activation_metrics.similarity(n));
+            fprintf('Kernel %d - Activation Similarity: %.3f\n', n, activation_similarity(n));
         end
         fprintf('Kernel Quality Factors:\n');
         for n = 1:kernel_num
-            fprintf('Kernel %d: %.3f\n', n, kernel_metrics(n));
+            fprintf('Kernel %d: %.3f\n', n, kernel_similarity(n));
         end
         
         lambda = lambda .* lam2fac;
@@ -240,70 +243,13 @@ else
     bout = biter;
 end
 
-runtime = toc(starttime);
-fprintf('\nDone! Runtime = %.2fs. \n\n', runtime);
+%% Final timing
+total_runtime = toc(total_starttime);
+fprintf('\nTotal Runtime = %.2fs\n\n', total_runtime);
 
-% Call the visualization function
-visualize_quality_factors(extras, params.phase2, maxIT, nrefine, kernel_num);
+% Store runtime in extras
+extras.runtime = total_runtime;
 
-end
-
-function visualize_quality_factors(extras, phase2_performed, maxIT, nrefine, kernel_num)
-    figure;
-
-    % Plot Activation Similarity
-    subplot(2,1,1);
-    similarities_phase1 = zeros(maxIT, kernel_num);
-    for i = 1:maxIT
-        similarities_phase1(i,:) = extras.phase1.activation_metrics{i}.similarity;
-    end
-    
-    colors = lines(kernel_num);
-    for n = 1:kernel_num
-        plot(1:maxIT, similarities_phase1(:,n), 'Color', colors(n,:), 'LineStyle', '-', ...
-            'DisplayName', sprintf('Phase I Kernel %d', n));
-        hold on;
-    end
-    
-    if phase2_performed
-        similarities_phase2 = zeros(nrefine+1, kernel_num);
-        for i = 1:nrefine+1
-            similarities_phase2(i,:) = [extras.phase2.activation_metrics{i}.similarity];
-        end
-        
-        for n = 1:kernel_num
-            plot(maxIT:maxIT+nrefine, similarities_phase2(:,n), 'Color', colors(n,:), ...
-                'LineStyle', ':', 'DisplayName', sprintf('Phase II Kernel %d', n));
-        end
-    end
-    xlabel('Iteration');
-    ylabel('Activation Similarity');
-    title('Activation Reconstruction Quality vs. Iteration');
-    legend('show');
-    grid on;
-    hold off;
-
-    % Plot Kernel Quality Factors
-    subplot(2,1,2);
-    for n = 1:kernel_num
-        plot(1:maxIT, extras.phase1.kernel_quality_factors(:,n), 'Color', colors(n,:), ...
-            'LineStyle', '-', 'DisplayName', sprintf('Phase I Kernel %d', n));
-        hold on;
-    end
-    
-    if phase2_performed
-        for n = 1:kernel_num
-            plot(maxIT:maxIT+nrefine, extras.phase2.kernel_quality_factors(:,n), ...
-                'Color', colors(n,:), 'LineStyle', ':', ...
-                'DisplayName', sprintf('Phase II Kernel %d', n));
-        end
-    end
-    xlabel('Iteration');
-    ylabel('Kernel Quality Factor');
-    title('Kernel Quality Factors vs. Iteration');
-    legend('show');
-    grid on;
-    hold off;
 end
 
 

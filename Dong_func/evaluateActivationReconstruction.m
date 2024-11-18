@@ -16,6 +16,8 @@ function [metrics, aligned_maps] = evaluateActivationReconstruction(X0, Xout, ke
     if nargin < 4
         visualize = false;
     end
+   
+    num_kernels = size(X0, 3);
     
     % Step 1: Align activation maps
     [Xout_aligned, offsets, align_quality] = alignActivationMaps(X0, Xout, kernel_size);
@@ -37,14 +39,5 @@ function [metrics, aligned_maps] = evaluateActivationReconstruction(X0, Xout, ke
         metrics.density = [filtered_maps.density];
         metrics.L = [filtered_maps.L];
         metrics.sigma = [filtered_maps.sigma];
-        
-        % Print results only if visualization is true
-        fprintf('\nFinal Evaluation Results:\n');
-        fprintf('========================\n');
-        for k = 1:num_kernels
-            fprintf('\nKernel %d:\n', k);
-            fprintf('  Pattern Match: %.3f\n', metrics(k).alignment.primary_peak);
-            fprintf('  Similarity: %.3f\n', metrics(k).similarity);
-        end
     end
 end 
