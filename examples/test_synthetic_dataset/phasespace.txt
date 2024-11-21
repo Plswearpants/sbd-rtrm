@@ -50,8 +50,10 @@ Test protocol:
 GOAL: find a parameter phase that is stable and reliable to run the algorithm. And form a guideline for the parameter selection.
 
 0. make a list of example datasets with different parameters, that covers the phase space. -> benchmark test set. 
-1. repetivity: 5 times
+1. repetivity of each data point 
 2. cotrol parameters should be covering as wide of a phase space as possible. 
+
+
 
 
 Evaluation/analysis of test: 
@@ -59,3 +61,4 @@ Evaluation/analysis of test:
 1.1. activation recovery accuracy. 
 1.2. kernel recovery accuracy. 
 1.3. variation of the metrics with respect to the control parameters. 
+1.4. residual quality metric. 

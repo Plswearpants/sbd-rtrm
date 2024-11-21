@@ -72,9 +72,56 @@ eta = var(Y_clean, 0, "all") / SNR;
 Y = Y_clean + sqrt(eta) * randn(size(Y_clean));
 %% ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Control parameter panel~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 load('SBD_STM_results_20241116_124411.mat');
+
+%% Residual Quality Analysis
+% Calculate residual-based quality metric
+estimated_noise_var = estimate_noise(Y, 'std');
+[var_ratio, residual] = computeResidualQuality(Y, Aout, Xout, estimated_noise_var);
+
+% Generate estimated noise signal for comparison
+noise_std = sqrt(estimated_noise_var);
+estimated_noise = noise_std * randn(size(Y));
+
+% Visualize residual and noise analysis
+figure('Name', 'Residual Analysis');
+
+% Residual visualization
+subplot(2,2,1)
+imagesc(residual); 
+colorbar; 
+title(sprintf('Residual Map\nvar(noise)/var(residual) = %.3f', var_ratio));
+axis image;
+
+subplot(2,2,2)
+histogram(residual(:), 50, 'Normalization', 'probability');
+title('Residual Distribution');
+xlabel('Value'); 
+ylabel('Probability');
+
+% Noise visualization
+subplot(2,2,3)
+imagesc(estimated_noise);
+colorbar;
+title(sprintf('Estimated Noise Map\nvar(noise) = %.3e', estimated_noise_var));
+axis image;
+
+subplot(2,2,4)
+histogram(estimated_noise(:), 50, 'Normalization', 'probability');
+title('Estimated Noise Distribution');
+xlabel('Value');
+ylabel('Probability');
+
+set(gcf, 'Position', [100, 100, 800, 600]);
+
 %% Observation generation with controlled noise level
-SNR= 3;
+%SNR = ;
 [Y, Y_clean, A0, num_kernels, kernel_size] = generateObservationWithSNRControl(X0, A0_noiseless, SNR);
+
+% Estimate noise from observation (as we would do with real data)
+estimated_noise_var = estimate_noise(Y, 'std');
+
+% Calculate residual quality metric after reconstruction is done
+residual_quality = computeResidualQuality(Y, Aout, Xout, estimated_noise_var);
 
 %% Observation normalization 
 rangetype = 'dynamic';  
