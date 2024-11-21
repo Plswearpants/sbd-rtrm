@@ -1,0 +1,64 @@
+For the synthetic dataset, we first explore the parameter space of the problem.
+Based on the Creation of the synthetic dataset block in @SBD_test_multi.m, here are the key parameters needed to create a synthetic multi-kernel observation dataset:
+1. num_kernels: Number of kernels (e.g. 3)
+2. n: Number of energy layers per kernel (e.g. 2)
+3. kernel_size/image_size: Size of the kernel relative to the image size (e.g. [40,40]/[200,200])
+4. theta_cap: Maximum probability for kernel activation (e.g. 5e-4)
+5. SNR: Signal-to-Noise Ratio (e.g. 10)
+Additionally, there are some derived or randomly generated parameters:
+6. theta: Actual activation probabilities for each kernel (randomly generated)
+7. b0: Bias term (randomly generated)
+8. The kernels themselves (A0) are initialized using slices from a pre-loaded simulated LDoS (Local Density of States) data.
+Then there are relative parameters among the kernels:
+9. relative theta_cap
+10. relative size of kernels
+11: similarity between kernels(intuitively, the more similar, the more difficult to separate)
+
+some extreme cases are:
+1. noise-free case
+2. very dense activation map
+3. very sparse activation map
+4. overlapping kernels
+
+Useful tests should be performed in single parameter space while fixing other parameters to be ideal cases.
+Here we define what is an ideal case.
+num_kernels does not matter, as long as it is a multi-kernel problem.
+n does not matter as long as it is a single layer problem.
+image_size does not matter as long as it is a large enough image.
+kernel_size does not matter as long as it captures the whole structure of the kernels.
+
+Test noise_level:  
+Fixed parameters: num_kernels = 2, n = 1, image_size = [300, 300], kernel_size = [[50, 50],[50,50]], theta_cap = 2e-4, b0 = 0. 
+Changing parameters: SNR, A0
+
+Note: we want to test the performance of the algorithm with respect to the noise level and the inital guess of the kernels.
+
+~~~~~~~~~~~~~~~Now let's create a script that can run tests on the parameter space in batch~~~~~~~~~~~~~~~
+All the non-degenerate parameters are: 
+1. num_kernels
+2. image_size
+3. kernel_size
+4. theta_cap
+5. SNR
+6. kernel_similarity
+
+Let's pick 3 parameters to construct the parameter space, meaning we fix the other parameters, and can only vary the chosen parameters: 
+
+phase space 1: 
+
+Test protocol:
+GOAL: find a parameter phase that is stable and reliable to run the algorithm. And form a guideline for the parameter selection.
+
+0. make a list of example datasets with different parameters, that covers the phase space. -> benchmark test set. 
+1. repetivity of each data point 
+2. cotrol parameters should be covering as wide of a phase space as possible. 
+
+
+
+
+Evaluation/analysis of test: 
+1. focus on the phase space that works, meaning we can put a threshold to the metrics. Metrics include: 
+1.1. activation recovery accuracy. 
+1.2. kernel recovery accuracy. 
+1.3. variation of the metrics with respect to the control parameters. 
+1.4. residual quality metric. 
