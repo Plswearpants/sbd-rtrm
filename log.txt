@@ -8,3 +8,6 @@ some feedbacks from Jisun and Sarah on the benchmark datasets:
 3. SNR should be defined with respect to the noise level of the detector, which need further investigation. 
 
 
+12-03-2024
+- Markus's feedback on the consistency of the algorithm: 
+We should run the algorithm multiple times on the same dataset with the same initial conditions and see if the results are the same. Maybe say 5 times.

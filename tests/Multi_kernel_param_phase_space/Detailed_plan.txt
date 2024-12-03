@@ -175,31 +175,120 @@ This comprehensive metrics framework enables:
 - Robust comparison across different test conditions
 - Data-driven refinement of algorithm parameters
 
-
-
-
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Visualization Strategy
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Goal of visualization:
-- visualize the performance of the algorithm across the system parameter space
-- To determine the optimal system parameter setting for the algorithm, or if the optimal setting is different for different datasets
-   - if the optimal setting is different for different datasets, we need to visualize the performance difference across different datasets,
-     and see if there is any correlation between the system parameters and the performance.
-- Therefore, our first step is to visualize the performance of the algorithm across the system parameter space.
+- Visualize the performance of the algorithm across the system parameter space
+- Determine the optimal system parameter setting for the algorithm, or if the optimal setting is different for different datasets
+- If the optimal setting is different for different datasets, visualize the performance difference across different datasets,
+  and see if there is any correlation between the system parameters and the performance.
+
+1. Performance Metrics Visualization
+   a) Quality Metrics:
+      * Kernel Quality Factors
+      * Activation Recovery Accuracy
+      * Runtime Analysis
+   
+   b) Convergence Analysis:
+      * Primary Convergence Indicator:
+        - Observation Residual: ||Y - A*X||_F / ||Y||_F
+        - Relative change between iterations: |residual_k+1 - residual_k| / |residual_k|
+        - Physical Threshold: noise level of the dataset (η)
+        - Convergence achieved when residual change falls below η
+      
+      * Supporting Metrics (without thresholds):
+        - Kernel Quality trajectory
+        - Activation Recovery Accuracy trajectory
+        - These show evolution but don't determine convergence
+
+2. Visualization Methods
+   a) Parameter Space Heatmaps:
+      * 2D heatmaps (lambda1 vs mini_loop)
+      * Separate heatmaps for each metric
+      * Color intensity represents metric value
+      * Hatching/patterns to indicate convergence status
+
+   b) Convergence Trajectory Plots:
+      * Main Panel: Observation Residual
+        - Y-axis: log scale for residual
+        - Horizontal line at noise level η
+        - Multiple parameter combinations as different lines
+        - Clear indication of convergence points
+      
+      * Supporting Panels:
+        - Kernel Quality vs Iteration
+        - Activation Accuracy vs Iteration
+        - These show quality evolution but don't determine convergence
+
+3. Cross-Dataset Analysis
+   a) Parameter Performance Consistency:
+      * Compare heatmaps across different datasets
+      * Identify common optimal regions
+      * Highlight dataset-specific variations
+
+   b) Convergence Behavior Comparison:
+      * Compare convergence speeds across datasets
+      * Analyze parameter sensitivity per dataset
+      * Identify robust parameter combinations
+
+4. Interactive Visualization Features
+   - Toggle between different metrics
+   - Zoom into specific parameter regions
+   - Compare multiple datasets side by side
+   - Filter by convergence status
+   - Overlay multiple metrics for correlation analysis
+
+5. Specific Plot Designs
+
+   a) Primary Performance Heatmaps:
+      * Base Layout: 3x3 grid for lambda1 vs mini_loop
+      * Four separate figures for each metric:
+        - Final Kernel Quality (averaged across kernels)
+        - Final Activation Recovery Accuracy
+        - Runtime to Convergence (or total if not converged)
+        - Convergence Success (boolean or speed indicator)
+      * Color scheme: 
+        - Metric values: sequential colormap (e.g., viridis)
+        - Convergence indicator: hatching pattern overlay
+      * Annotations: Numerical values in each cell
+
+   b) Convergence Trajectory Plots:
+      * 2x2 Panel Layout:
+        - Top Left: Kernel Quality vs Iteration
+        - Top Right: Activation Accuracy vs Iteration
+        - Bottom Left: Relative Change in Kernel Quality
+        - Bottom Right: Relative Change in Activation Accuracy
+      * Features:
+        - Multiple parameter combinations as different lines
+        - Horizontal lines for convergence thresholds
+        - Vertical lines at convergence points
+        - Legend indicating parameter values
+
+   c) Cross-Dataset Comparison:
+      * Difference Heatmaps:
+        - Show variation in optimal parameters across datasets
+        - Highlight regions of consistent performance
+      * Parameter Sensitivity Plot:
+        - Bar plots showing metric variance across datasets
+        - Separate bars for each parameter combination
+
+   d) Summary Dashboard:
+      * Single figure combining key insights:
+        - Best performing parameters for each dataset
+        - Convergence success rate across parameter space
+        - Runtime distribution
+        - Parameter robustness indicators
+
+This visualization strategy enables:
+- Comprehensive performance assessment across parameter space
+- Clear identification of optimal parameter regions
+- Understanding of convergence behavior
+- Cross-dataset comparison and analysis
+- Insight into parameter sensitivity and robustness
 
 Questions: 
 1. what are we visualizing? 
-   - the metrics we defined in the evaluation metrics and analysis strategy section, including:
-     * activation recovery accuracy
-     * kernel quality factors
-     * runtime analysis
-     * convergence indicators-> Did the algorithm converge? If yes, how well the algorithm converges, and if convergence is achieved, how fast the algorithm converges within maxIT=30
-
 2. how are we visualizing? 
-   -  In total, there are 2 system parameters: lambda1 and mini_loop, and each has 3 levels: [1e-2, 3.16e-2, 1e-1] and [1, 3, 9] respectively.
-      - therefore, we are visualizing the performance of the algorithm across the system parameter space, which is a 2D space.
-      - since there are only 9 points, we can use a heatmap. 
-      - the x-axis is lambda1, the y-axis is mini_loop, and the z-axis is the metrics we defined in the evaluation metrics and analysis strategy section.
-      - each metrics will have a heatmap, and in total there will be 4 heatmaps.
+
