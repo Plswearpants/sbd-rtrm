@@ -1,0 +1,10 @@
+11-28-2024
+some feedbacks from Jisun and Sarah on the benchmark datasets:
+1. symmetry of the kernel may not be the same in real cases, the feature of QPI might be the same, but the feature of defects might not.
+2. theta_cap/pixel and image_size may not be good parameters, as in the physical case, optimal density of pixel per nm is defined by the 
+    target resolution in real space(and target range of the q-space), therefore, the real considerations are:
+    a) size of unit cell in real space -> determines pixel per nm 
+    b) helium/ nitrogen holding time -> determines total pixel number 
+3. SNR should be defined with respect to the noise level of the detector, which need further investigation. 
+
+

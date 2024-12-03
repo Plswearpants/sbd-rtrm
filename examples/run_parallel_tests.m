@@ -2,8 +2,9 @@ clc; clear;
 run('../init_sbd');
 
 %% Load pre-generated synthetic datasets
-load('synthetic_datasets_20241127_170302.mat');  
-datasets = datasets(2);  % Choose subset if needed
+load('results\parallel results\synthetic_datasets_20241127_170302/synthetic_datasets_20241127_170302.mat');  
+%%
+% datasets = datasets(2);  % Choose subset if needed
 
 %% Initialize kernels for all datasets
 A1_all = initialize_all_kernels(datasets);
