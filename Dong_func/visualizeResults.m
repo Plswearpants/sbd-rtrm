@@ -1,4 +1,4 @@
-function visualizeResults(Y, A0, Aout, X0, Xout, bout, extras)
+function visualizeResults(Y, A0, Aout, X0, Xout, bout, extras, indices)
     % Visualize results from SBD-STM reconstruction
     %
     % Inputs:
@@ -9,6 +9,7 @@ function visualizeResults(Y, A0, Aout, X0, Xout, bout, extras)
     %   Xout: Reconstructed activation maps
     %   bout: Bias terms [num_kernels x 1]
     %   extras: Struct containing convergence metrics
+    %   indices: Optional [dataset_num, param_num] for labeling plots
     
     num_kernels = length(A0);
     
@@ -25,24 +26,30 @@ function visualizeResults(Y, A0, Aout, X0, Xout, bout, extras)
         Y_reconstructed = Y_reconstructed + bout(i);  % Add bias term
     end
 
+    % Prepare index string if indices provided
+    idx_str = '';
+    if nargin > 7 && ~isempty(indices)
+        idx_str = sprintf('\nDataset # %d, Parameter Set # %d', indices(1), indices(2));
+    end
+
     % 1. Original vs Reconstructed Full Image
     figure('Name', 'Full Image Comparison');
     subplot(121);
     imagesc(Y);
-    title('Original Image');
+    title(['Original Image']);
     colorbar;
     axis image;
 
     subplot(122);
     imagesc(Y_reconstructed);
-    title('Reconstructed Image');
+    title(['Reconstructed Image']);
     colorbar;
     axis image;
-    sgtitle('Original vs Reconstructed Image');
+    sgtitle(['Original vs Reconstructed Image' idx_str]);
 
     % 2. Kernel Quality Analysis (using QPI patterns)
     fprintf('\nAnalyzing Kernel Quality with QPI Patterns:\n');
-    quality_factors = evaluateKernelQuality(Aout, A0, true);
+    quality_factors = evaluateKernelQuality(Aout, A0, true, indices);
     fprintf('QPI-based Quality Factors:\n');
     for n = 1:num_kernels
         fprintf('Kernel %d: %.4f\n', n, quality_factors(n));
@@ -50,7 +57,7 @@ function visualizeResults(Y, A0, Aout, X0, Xout, bout, extras)
 
     % 3. Activation Map Analysis
     fprintf('\nAnalyzing Activation Map Quality:\n');
-    [activation_metrics, aligned_maps] = evaluateActivationReconstruction(X0, Xout, kernel_size, true);
+    [activation_metrics, aligned_maps] = evaluateActivationReconstruction(X0, Xout, kernel_size, true, indices);
 
     % Print detailed activation metrics
     fprintf('\nActivation Reconstruction Metrics:\n');
@@ -79,7 +86,7 @@ function visualizeResults(Y, A0, Aout, X0, Xout, bout, extras)
         plot(maxIT:(maxIT+nrefine), extras.phase2.activation_metrics, 'LineStyle', ':');
     end
     hold off;
-    title('Activation Metrics Convergence');
+    title(['Activation Metrics Convergence' idx_str]);
     xlabel('Iteration');
     ylabel('Activation Similarity');
     legend(arrayfun(@(x) sprintf('Kernel %d', x), 1:num_kernels, 'UniformOutput', false));
@@ -95,9 +102,9 @@ function visualizeResults(Y, A0, Aout, X0, Xout, bout, extras)
         plot(maxIT:(maxIT+nrefine), extras.phase2.kernel_quality_factors, 'LineStyle', ':');
     end
     hold off;
-    title('Kernel Quality Factors Convergence');
+    title(['Kernel Quality Factors Convergence' idx_str]);
     xlabel('Iteration');
     ylabel('Quality Factor');
     legend(arrayfun(@(x) sprintf('Kernel %d', x), 1:num_kernels, 'UniformOutput', false));
     grid on;
-end 
+end

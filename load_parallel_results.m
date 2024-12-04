@@ -37,8 +37,10 @@ function [metrics] = load_parallel_results()
     
     % Initialize arrays for metrics
     num_datasets = length(unique_datasets);
-    metrics.kernel_quality = nan(num_datasets, num_params);
-    metrics.activation_accuracy = nan(num_datasets, num_params);
+    metrics.kernel_quality_trajectory = cell(num_datasets, num_params);  % Store full trajectory
+    metrics.activation_accuracy_trajectory = cell(num_datasets, num_params);  % Store full trajectory
+    metrics.kernel_quality_final = nan(num_datasets, num_params);  % Store final values
+    metrics.activation_accuracy_final = nan(num_datasets, num_params);  % Store final values
     metrics.runtime = nan(num_datasets, num_params);
     metrics.residuals = cell(num_datasets, num_params);
     metrics.relative_changes = cell(num_datasets, num_params);
@@ -72,16 +74,18 @@ function [metrics] = load_parallel_results()
         % Extract metrics from extras
         extras = data.extras{1};  % Unwrap from cell
         
-        % Store kernel quality (final value)
+        % Store kernel quality (both trajectory and final value)
         if isfield(extras.phase1, 'kernel_quality_factors')
             kq = extras.phase1.kernel_quality_factors;
-            metrics.kernel_quality(dataset_idx, param_idx) = kq(end);
+            metrics.kernel_quality_trajectory{dataset_idx, param_idx} = kq;  % Store full trajectory
+            metrics.kernel_quality_final(dataset_idx, param_idx) = kq(end);  % Store final value
         end
         
-        % Store activation accuracy (final value)
+        % Store activation accuracy (both trajectory and final value)
         if isfield(extras.phase1, 'activation_metrics')
             aa = extras.phase1.activation_metrics;
-            metrics.activation_accuracy(dataset_idx, param_idx) = aa(end);
+            metrics.activation_accuracy_trajectory{dataset_idx, param_idx} = aa;  % Store full trajectory
+            metrics.activation_accuracy_final(dataset_idx, param_idx) = aa(end);  % Store final value
         end
         
         % Store runtime

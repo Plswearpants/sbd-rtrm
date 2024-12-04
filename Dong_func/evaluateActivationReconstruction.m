@@ -1,4 +1,4 @@
-function [metrics, aligned_maps] = evaluateActivationReconstruction(X0, Xout, kernel_size, visualize)
+function [metrics, aligned_maps] = evaluateActivationReconstruction(X0, Xout, kernel_size, visualize, indices)
     % Evaluate reconstruction quality by first aligning activation maps and then
     % computing similarity with density-adaptive Gaussian filtering
     %
@@ -7,6 +7,7 @@ function [metrics, aligned_maps] = evaluateActivationReconstruction(X0, Xout, ke
     %   Xout: reconstructed activation maps [height x width x num_kernels]
     %   kernel_size: size of each kernel [num_kernels x 2]
     %   visualize: (optional) boolean for visualization (must be 1 or 0)
+    %   indices: Optional [dataset_num, param_num] for labeling plots
     %
     % Outputs:
     %   metrics: similarity scores for each kernel (if visualize=false)
@@ -19,11 +20,17 @@ function [metrics, aligned_maps] = evaluateActivationReconstruction(X0, Xout, ke
    
     num_kernels = size(X0, 3);
     
+    % Prepare index string if indices provided
+    idx_str = '';
+    if nargin > 4 && ~isempty(indices)
+        idx_str = sprintf('\nDataset # %d, Parameter Set # %d', indices(1), indices(2));
+    end
+    
     % Step 1: Align activation maps
     [Xout_aligned, offsets, align_quality] = alignActivationMaps(X0, Xout, kernel_size);
     
     % Step 2: Compute similarity with density-adaptive Gaussian
-    [similarities, filtered_maps] = computeActivationSimilarity(X0, Xout_aligned, kernel_size, visualize);
+    [similarities, filtered_maps] = computeActivationSimilarity(X0, Xout_aligned, kernel_size, visualize, indices);
     
     % Store aligned maps
     aligned_maps.Xout_aligned = Xout_aligned;

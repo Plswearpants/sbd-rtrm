@@ -1,13 +1,11 @@
-function quality_factors = evaluateKernelQuality(output_kernels, gt_kernels, do_visualization)
+function quality_factors = evaluateKernelQuality(output_kernels, gt_kernels, do_visualization, indices)
     % Evaluates kernel quality by comparing QPI patterns
     %
     % Inputs:
     %   output_kernels: Single kernel or cell array of kernels from algorithm
     %   gt_kernels: Single kernel or cell array of ground truth kernels
     %   do_visualization: Boolean flag for visualization (default: false)
-    %
-    % Outputs:
-    %   quality_factors: Array of similarity scores for each kernel pair
+    %   indices: Optional [dataset_num, param_num] for labeling plots
     
     % Handle default visualization parameter
     if nargin < 3
@@ -27,6 +25,12 @@ function quality_factors = evaluateKernelQuality(output_kernels, gt_kernels, do_
     
     % Initialize quality factors array
     quality_factors = zeros(1, num_kernels);
+    
+    % Prepare index string if indices provided
+    idx_str = '';
+    if nargin > 3 && ~isempty(indices)
+        idx_str = sprintf('\nDataset # %d, Parameter Set # %d', indices(1), indices(2));
+    end
     
     if do_visualization
         % Create figure with appropriate subplots
@@ -61,11 +65,7 @@ function quality_factors = evaluateKernelQuality(output_kernels, gt_kernels, do_
             axis square; colorbar;
         end
     end
-    
-    if do_visualization && num_kernels > 1
-        mean_score = mean(quality_factors);
-        sgtitle(sprintf('Kernel QPI Comparison (Mean Score: %.3f)', mean_score));
-    elseif do_visualization
-        sgtitle(sprintf('Kernel QPI Comparison (Score: %.3f)', quality_factors(1)));
+    if do_visualization
+        sgtitle(['Kernel QPI Comparison' idx_str]);
     end
 end 
