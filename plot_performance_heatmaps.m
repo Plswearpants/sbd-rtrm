@@ -41,12 +41,39 @@ function plot_metric_surface(data, lambda1_values, mini_loop_values, title_str)
     else
         % For array metrics, plot each dataset as a separate surface
         num_datasets = size(data, 1);
-        colors = winter(num_datasets); % Create colormap for different datasets
+        
+        % Define distinct colors for 12 datasets
+        distinct_colors = [
+            0.8500    0.3250    0.0980;  % Orange
+            0         0.4470    0.7410;  % Blue
+            0.9290    0.6940    0.1250;  % Yellow
+            0.4940    0.1840    0.5560;  % Purple
+            0.4660    0.6740    0.1880;  % Green
+            0.6350    0.0780    0.1840;  % Dark Red
+            0         0.7500    0.7500;  % Cyan
+            0.7500    0         0.7500;  % Magenta
+            0.2500    0.2500    0.2500;  % Gray
+            0.9500    0.5000    0.2000;  % Light Orange
+            0.1000    0.5000    0.5000;  % Teal
+            0.5000    0.5000    0;       % Olive
+        ];
         
         for i = 1:num_datasets
             dataset_data = data(i,:);
             Z = reshape(dataset_data, size(X));
-            surf(X, Y, Z, 'FaceAlpha', 0.7, 'FaceColor', colors(i,:), 'EdgeColor', 'k');
+            surf(X, Y, Z, 'FaceAlpha', 0.7, ...
+                'FaceColor', distinct_colors(i,:), ...
+                'EdgeColor', 'k', ...
+                'EdgeAlpha', 0.2);
+        end
+        colormap(distinct_colors);
+        % Only show colorbar on the last plot (Convergence Success)
+        if strcmp(title_str, 'Convergence Success')
+            c = colorbar;
+            c.Ticks = (0:num_datasets-1)/(num_datasets-1);
+            c.TickLabels = arrayfun(@(x) sprintf('Dataset %d', x), 1:num_datasets, 'UniformOutput', false);
+            c.Limits = [0 1];
+            c.Label.String = 'Datasets';
         end
     end
     

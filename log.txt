@@ -17,3 +17,10 @@ Want residual metrics, defined as Residual quality: var(noise)/var(Y-sum-(Y_each
 Want to create a demixing metric, verbally defined as how successful the algorithm is in separating the individual kernels.
     This can be done by: normalized([element-wise product(all reconstructed&gaussian-filtered activations)])- normalized(element-wise product(all original&gaussian-filtered activations))
 
+12-04-2024 
+- Sarah's feedback: 
+Test case: different defect structure and simmilar QPI features -> different kernels: 2 lobes with 2 orientations.
+test case in STM 
+todo: single test on kernel number 
+cross-relation between sparsity and lembda1. 
+lembda1 on the other direction. 2 lembda1 values. 
