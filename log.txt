@@ -15,7 +15,7 @@ We should run the algorithm multiple times on the same dataset with the same ini
 - Dong's feedback: 
 Want residual metrics, defined as Residual quality: var(noise)/var(Y-sum-(Y_each_kernel)), already exists in computeResidualQuality.m
 Want to create a demixing metric, verbally defined as how successful the algorithm is in separating the individual kernels.
-    This can be done by: normalized([element-wise product(all reconstructed&gaussian-filtered activations)])- normalized(element-wise product(all original&gaussian-filtered activations))
+    This can be done by: sum_all(cross-correlation(2 activations, exclude self-correlation)), this give a scalar, but could also save the matrix, in case want to see which ones are most correlated. 
 
 12-04-2024 
 - Sarah's feedback: 

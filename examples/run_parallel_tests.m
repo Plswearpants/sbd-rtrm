@@ -10,7 +10,7 @@ load('results\parallel results\synthetic_datasets_20241127_170302/synthetic_data
 A1_all = initialize_all_kernels(datasets);
 
 %% Define system parameters and create configs
-lambda1_range = [1e-2, 3.16e-2, 1e-1];
+lambda1_range = [0.3, 0.5];
 mini_loop_range = [1, 3, 9];
 maxIT = 30;
 
@@ -49,10 +49,12 @@ end
 %% Run parallel tests
 % start initialize the parallel pool, check if already running
 if isempty(gcp('nocreate'))
-    parpool(9);
+    parpool(6);
 end
 
 for n = 1:numel(datasets)   
+    % print dataset index as indicator
+    fprintf('Starting Dataset %d\n', n);
     % Broadcast parameters to workers
     % Extract dataset parameters that will be used in parfor
     dataset_Y = datasets(n).Y;
@@ -60,7 +62,8 @@ for n = 1:numel(datasets)
     dataset_X0 = datasets(n).X0;
     dataset_A0 = datasets(n).A0;
     dataset_A1 = A1_all{n};
-    
+    dataset_idx = n;
+
     % set parameters
     params.phase2 = false;
     params.X0 = dataset_X0;
@@ -68,16 +71,18 @@ for n = 1:numel(datasets)
     params.Xsolve = 'FISTA';
     params.xpos = true;
     params.getbias = true;
-
+    
     parfor param_idx = 1:num_param_combos
         % Use same path as creation
         param_dir = fullfile(config_dir, sprintf('config_param_%d', param_idx));
         try
+            
             [Aout, Xout, bout, extras] = SBD_test_multi_parallel(...
                 dataset_Y, ...
                 dataset_kernel_size, ...
                 params, ...
                 dataset_A1, ...
+                dataset_idx, ...
                 param_combinations,...
                 param_idx, ...
                 maxIT);
@@ -104,8 +109,14 @@ for n = 1:numel(datasets)
                 n, param_idx, filename);
 
         catch ME
-            warning('Error in dataset %d, param combo %d: %s', ...
-                n, param_idx, ME.message);
+            % Enhanced error reporting
+            fprintf('Error Details for dataset %d, param combo %d:\n', n, param_idx);
+            fprintf('Error Message: %s\n', ME.message);
+            fprintf('Error Stack:\n');
+            for k = 1:length(ME.stack)
+                fprintf('  File: %s\n  Line: %d\n  Function: %s\n', ...
+                    ME.stack(k).file, ME.stack(k).line, ME.stack(k).name);
+            end
         end
     end
 end

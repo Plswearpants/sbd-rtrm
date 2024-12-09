@@ -1,5 +1,15 @@
-function [ Aout, Xout, bout, extras ] = SBD_test_multi_parallel( Y, k, fixed_params, kernel_initialguess, parameter_combinations, param_idx, maxIT)
+function [ Aout, Xout, bout, extras ] = SBD_test_multi_parallel( Y, k, fixed_params, kernel_initialguess, dataset_idx, parameter_combinations, param_idx, maxIT)
     %SBD Summary of this function goes here
+    %
+    % Inputs:
+    %   Y: Input data
+    %   k: Kernel sizes [n x 2]
+    %   fixed_params: Structure containing fixed parameters
+    %   kernel_initialguess: Initial kernel guess
+    %   dataset_idx: Index of the current dataset
+    %   parameter_combinations: Matrix of parameter combinations
+    %   param_idx: Index of current parameter combination
+    %   maxIT: Maximum number of iterations
     %
     %   PARAMS STRUCT:
     %   ===============
@@ -25,6 +35,14 @@ function [ Aout, Xout, bout, extras ] = SBD_test_multi_parallel( Y, k, fixed_par
     %                                                                                                                      
     %   k: n*2 matrix containing a list of n different kernel sizes [x,y]. 
     %   kernel_initialguess: cell array containing different intial guess of kernel 
+    
+    %% Input validation
+    if isempty(dataset_idx)
+        error('dataset_idx must not be empty');
+    end
+    if ~isnumeric(dataset_idx) || ~isscalar(dataset_idx)
+        error('dataset_idx must be a scalar number');
+    end
     
     %% Start timing for the whole process
     total_starttime = tic;
@@ -72,9 +90,12 @@ function [ Aout, Xout, bout, extras ] = SBD_test_multi_parallel( Y, k, fixed_par
         A0 = fixed_params.A0;
         
         %% Phase I: Initialization and First Iteration
-        fprintf('PHASE I: Initialization and First Iteration\n');
-        fprintf('Param_idx=%d, Using lambda1=%.3e, mini_loop=%d\n', param_idx, lambda1, mini_loop);
         
+        fprintf('Param_idx=%d, Using lambda1=%.3e, mini_loop=%d\n', ...
+            param_idx, lambda1(1), round(mini_loop));
+        fprintf('PHASE I: Initialization and First Iteration\n');
+        
+
         % Add demixing factor
         faint_factor = 1;
 
@@ -91,6 +112,7 @@ function [ Aout, Xout, bout, extras ] = SBD_test_multi_parallel( Y, k, fixed_par
         extras.parameters.lambda1 = lambda1;
         extras.parameters.mini_loop = mini_loop;
         extras.parameters.param_idx = param_idx;
+        extras.parameters.dataset_idx = dataset_idx;
         
         % Main iteration loop
         for iter = 1:maxIT
@@ -124,9 +146,16 @@ function [ Aout, Xout, bout, extras ] = SBD_test_multi_parallel( Y, k, fixed_par
                 Xiter(:,:,n) = X_struct.(['x',num2str(n)]).X;
                 biter(n) = X_struct.(['x',num2str(n)]).b;
             end
-        
-            % Keep the same quality metrics computation
-            [activation_similarity, kernel_similarity] = computeQualityMetrics(X0, Xiter, A0, A, k);
+            
+            % Add input validation
+            if isempty(X0) || isempty(Xiter) || isempty(A0) || isempty(A) || isempty(k)
+                error('One or more inputs to computeQualityMetrics are empty');
+            end
+            
+            % Pass dataset index and parameter index to quality metrics
+            [activation_similarity, kernel_similarity] = computeQualityMetrics(...
+                X0, Xiter, A0, A, k, ...
+                extras.parameters.dataset_idx, extras.parameters.param_idx);
             extras.phase1.activation_metrics(iter,:) = activation_similarity;
             extras.phase1.kernel_quality_factors(iter,:) = kernel_similarity;
             
