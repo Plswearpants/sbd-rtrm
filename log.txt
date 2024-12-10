@@ -24,3 +24,12 @@ test case in STM
 todo: single test on kernel number 
 cross-relation between sparsity and lembda1. 
 lembda1 on the other direction. 2 lembda1 values. 
+
+12.09-2024
+- what I did today:
+1. merged the second batch of results with the first batch. 
+2. added the demixing metric to the results. 
+3. added the clean observation to the results. 
+4. added the parameter slices function to the results. 
+5. cleaned up the code for visualization. 
+6. write up on the definition of all the metrics used 

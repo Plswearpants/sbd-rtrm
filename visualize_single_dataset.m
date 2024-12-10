@@ -49,7 +49,12 @@ function visualize_single_dataset()
     bout = result.bout{1};  % Bias terms
     extras = result.extras{1};  % Convergence metrics
     
-    % Add clean observation to extras for visualization
+    % Calculate demixing metrics
+    [demix_score, corr_matrix] = computeDemixingMetric(Xout);
+    extras.demixing_score = demix_score;
+    extras.demixing_matrix = corr_matrix;
+    
+    % Add clean observation to extras
     extras.Y_clean = Y_clean;
     
     % Call visualizeResults with dataset and parameter indices
@@ -66,4 +71,5 @@ function visualize_single_dataset()
         synthetic_data.datasets(dataset_idx).params.theta_cap, ...
         synthetic_data.datasets(dataset_idx).params.kernel_size(1), ...
         synthetic_data.datasets(dataset_idx).params.SNR);
+    fprintf('Separation Score: %.4f (higher is better)\n', demix_score);
 end 

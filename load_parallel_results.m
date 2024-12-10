@@ -11,6 +11,22 @@ function [metrics] = load_parallel_results()
         error('Folder selection canceled by user');
     end
     
+    % Find and load synthetic dataset file first
+    synthetic_files = dir(fullfile(folder_path, 'synthetic_datasets*.mat'));
+    if ~isempty(synthetic_files)
+        synthetic_data = load(fullfile(folder_path, synthetic_files(1).name));
+        fprintf('Found synthetic dataset file: %s\n', synthetic_files(1).name);
+        
+        % Store dataset descriptions if available
+        if isfield(synthetic_data, 'descriptions')
+            metrics.dataset_descriptions = synthetic_data.descriptions;
+        elseif isfield(synthetic_data.datasets, 'descriptions')
+            metrics.dataset_descriptions = {synthetic_data.datasets.descriptions};
+        end
+    else
+        warning('No synthetic dataset file found for descriptions');
+    end
+    
     % Get list of all result files
     files = dir(fullfile(folder_path, 'SBD_parallel_dataset*.mat'));
     
@@ -46,6 +62,8 @@ function [metrics] = load_parallel_results()
     metrics.relative_changes = cell(num_datasets, num_params);
     metrics.noise_levels = nan(num_datasets, 1);
     metrics.param_combinations = [];
+    metrics.demixing_score = nan(num_datasets, num_params);
+    metrics.demixing_matrices = cell(num_datasets, num_params);
     
     % Initialize progress bar
     fprintf('Loading and processing files:\n');
@@ -66,9 +84,34 @@ function [metrics] = load_parallel_results()
         dataset_idx = find(unique_datasets == str2double(parts{3}(8:end)));
         param_idx = str2double(parts{5}(4:end));
         
-        % Store parameter combinations if not already stored
+        % Load and check parameter combinations
+        if isfield(data, 'param_combinations')
+            current_params = data.param_combinations;
+        elseif isfield(data, 's') && isfield(data.s, 'param_combinations')
+            current_params = data.s.param_combinations;
+        else
+            error('Could not find param_combinations in data file');
+        end
+        
+        % Store or append parameter combinations
         if isempty(metrics.param_combinations)
-            metrics.param_combinations = data.param_combinations;
+            metrics.param_combinations = current_params;
+            fprintf('Initial parameter combinations loaded\n');
+        else
+            % Check if new combinations need to be appended
+            new_combinations = [];
+            for j = 1:size(current_params, 1)
+                % Check if this combination already exists
+                if ~any(all(abs(metrics.param_combinations - current_params(j,:)) < 1e-10, 2))
+                    new_combinations = [new_combinations; current_params(j,:)];
+                end
+            end
+            
+            % Append new combinations if found
+            if ~isempty(new_combinations)
+                metrics.param_combinations = [metrics.param_combinations; new_combinations];
+                fprintf('Added %d new parameter combinations\n', size(new_combinations, 1));
+            end
         end
         
         % Extract metrics from extras
@@ -105,9 +148,17 @@ function [metrics] = load_parallel_results()
             metrics.relative_changes{dataset_idx, param_idx} = rel_changes;
         end
         
-        % Store noise level (assuming it's in extras)
+        % Store noise level (assuming its in extras)
         if isfield(extras, 'noise_level') && isnan(metrics.noise_levels(dataset_idx))
             metrics.noise_levels(dataset_idx) = extras.noise_level;
+        end
+        
+        % Store demixing score and matrix
+        if isfield(data, 'Xout')
+            Xout = data.Xout{1};  % Assuming Xout is stored in a cell
+            [demix_score, corr_matrix] = computeDemixingMetric(Xout);
+            metrics.demixing_score(dataset_idx, param_idx) = demix_score;
+            metrics.demixing_matrices{dataset_idx, param_idx} = corr_matrix;
         end
     end
     
@@ -125,4 +176,5 @@ function [metrics] = load_parallel_results()
     fprintf('- Number of datasets: %d\n', metrics.num_datasets);
     fprintf('- Lambda1 values: [%s]\n', join(string(metrics.lambda1_values), ', '));
     fprintf('- Mini-loop values: [%s]\n', join(string(metrics.mini_loop_values), ', '));
+
 end

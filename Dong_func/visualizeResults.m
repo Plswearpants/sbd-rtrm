@@ -71,13 +71,13 @@ function visualizeResults(Y, A0, Aout, X0, Xout, bout, extras, indices)
     % 4. Convergence History
     figure('Name', 'Convergence History');
     
+    % Make it 3x1 subplot to include demixing metric
+    subplot(3,1,1);
     % Check if Phase II was performed
     phase2_performed = isfield(extras, 'phase2');
     maxIT = size(extras.phase1.kernel_quality_factors, 1);
     
     % Plot Activation Metrics
-    subplot(2,1,1);
-    % Phase I
     plot(1:maxIT, extras.phase1.activation_metrics, 'LineStyle', '-');
     hold on;
     % Phase II (if performed)
@@ -92,9 +92,8 @@ function visualizeResults(Y, A0, Aout, X0, Xout, bout, extras, indices)
     legend(arrayfun(@(x) sprintf('Kernel %d', x), 1:num_kernels, 'UniformOutput', false));
     grid on;
 
+    subplot(3,1,2);
     % Plot Kernel Quality Factors
-    subplot(2,1,2);
-    % Phase I
     plot(1:maxIT, extras.phase1.kernel_quality_factors, 'LineStyle', '-');
     hold on;
     % Phase II (if performed)
@@ -107,4 +106,20 @@ function visualizeResults(Y, A0, Aout, X0, Xout, bout, extras, indices)
     ylabel('Quality Factor');
     legend(arrayfun(@(x) sprintf('Kernel %d', x), 1:num_kernels, 'UniformOutput', false));
     grid on;
+
+    % Add Demixing Score Plot
+    subplot(3,1,3);
+    [demix_score, corr_matrix] = computeDemixingMetric(Xout);
+    bar(1:num_kernels, corr_matrix, 'stacked');
+    title(['Activation Separation Score: ' sprintf('%.3f', demix_score) idx_str]);
+    xlabel('Kernel Index');
+    ylabel('Cross-Correlation');
+    legend(arrayfun(@(x) sprintf('vs Kernel %d', x), 1:num_kernels, 'UniformOutput', false));
+    grid on;
+
+    % Print demixing metrics
+    fprintf('\nDemixing Analysis:\n');
+    fprintf('Overall Separation Score: %.4f (higher is better)\n', demix_score);
+    fprintf('Cross-Correlation Matrix:\n');
+    disp(corr_matrix);
 end
