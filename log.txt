@@ -27,9 +27,18 @@ lembda1 on the other direction. 2 lembda1 values.
 
 12.09-2024
 - what I did today:
-1. merged the second batch of results with the first batch. 
-2. added the demixing metric to the results. 
-3. added the clean observation to the results. 
-4. added the parameter slices function to the results. 
-5. cleaned up the code for visualization. 
-6. write up on the definition of all the metrics used 
+1. Created an interactive visualization system with:
+    a) Parameter-specific views with dataset highlighting
+    b) Overview plots showing all parameter combinations
+    c) Robust error handling for dataset descriptions
+    d) Proper legend management
+2. Improved the demixing metric by:
+    a) Making it more intuitive (higher is better)
+    b) Normalizing appropriately
+    c) Adding proper documentation
+3. Created comprehensive documentation for all metrics in LaTeX format
+4. Made the visualization system more robust with:
+    a) Proper UI scaling
+    b) Error handling
+    c) Consistent styling across different views
+
