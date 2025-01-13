@@ -42,3 +42,5 @@ lembda1 on the other direction. 2 lembda1 values.
     b) Error handling
     c) Consistent styling across different views
 
+12.31-2024:
+1. Create a synthetic rotational dataset. 

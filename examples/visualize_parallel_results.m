@@ -1,5 +1,5 @@
 % Load the metrics
-metrics = load_parallel_results();
+metrics_2 = load_parallel_results();
 
 %% Create the heatmaps
 plot_performance_heatmaps(metrics);

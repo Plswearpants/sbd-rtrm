@@ -165,9 +165,9 @@ function [metrics] = load_parallel_results()
         
         if isfield(data, 'Xout')
             Xout = data.Xout{1};
-            [demix_score, corr_matrix] = computeDemixingMetric(Xout);
+            [demix_score, seperation_matrix] = computeDemixingMetric(Xout);
             metrics.demixing_score(dataset_idx, mini_loop_idx, lambda1_idx) = demix_score;
-            metrics.demixing_matrices{dataset_idx, mini_loop_idx, lambda1_idx} = corr_matrix;
+            metrics.demixing_matrices{dataset_idx, mini_loop_idx, lambda1_idx} = seperation_matrix;
         end
         
         % Store noise level (per dataset)

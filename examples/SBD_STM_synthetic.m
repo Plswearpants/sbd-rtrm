@@ -8,7 +8,7 @@ fprintf('\n\n');
 %  =========================
 
 %% 1. Kernel settings - see kernel types below
-kerneltype = 'simulated_STM';   
+kerneltype = 'simulated_STM';
 n = 1;               	% number of kernel slices
 k = [31 31];           	% kernel size
 
