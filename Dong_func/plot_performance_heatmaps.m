@@ -59,26 +59,35 @@ function plot_performance_heatmaps(metrics)
     
     % Store plot data in figure
     fig.UserData.metrics = metrics;
-    fig.UserData.surfaces = cell(4,1);
+    fig.UserData.surfaces = cell(5,1);
     fig.UserData.highlighted_dataset = 1;
     fig.UserData.other_alpha = 0.3;
     
     % Create plots
     titles = {'Kernel Quality', 'Activation Recovery', ...
-             'Runtime (s)', 'Demixing Score (higher is better)'};
+             'Runtime (s)', 'Demixing Score (higher is better)', ...
+             'Combined Score (higher is better)'};
     fields = {'kernel_quality_final', 'activation_accuracy_final', ...
-             'runtime', 'demixing_score'};
+             'runtime', 'demixing_score', 'combined_score'};
     
-    % Create subplot layout within the plot panel
-    t = tiledlayout(plot_panel, 2, 2, 'TileSpacing', 'compact', 'Padding', 'compact');
+    % Compute combined score
+    metrics.combined_score = computeCombined_activationScore(metrics.demixing_score, ...
+                                                metrics.activation_accuracy_final);
     
-    for i = 1:4
-        ax = nexttile(t);  % Explicitly specify the tiledlayout
+    % Create subplot layout within the plot panel - now 2x3 instead of 2x2
+    t = tiledlayout(plot_panel, 2, 3, 'TileSpacing', 'compact', 'Padding', 'compact');
+    
+    for i = 1:5
+        ax = nexttile(t);
         fig.UserData.surfaces{i} = plot_metric_surface(ax, metrics.(fields{i}), ...
             metrics.lambda1_values, metrics.mini_loop_values, titles{i}, ...
             fig.UserData.highlighted_dataset, fig.UserData.other_alpha);
         title(ax, titles{i});
     end
+    
+    % Add an empty tile to maintain symmetry (optional)
+    nexttile(t);
+    axis off;
     
     sgtitle('Performance Metrics Across Parameter Space', 'FontSize', 14);
     
@@ -97,7 +106,7 @@ function plot_performance_heatmaps(metrics)
         end
         
         % Update each plot
-        for plot_idx = 1:4
+        for plot_idx = 1:5
             data = metrics.(fields{plot_idx});
             surfaces = fig.UserData.surfaces{plot_idx};
             

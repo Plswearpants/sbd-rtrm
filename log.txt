@@ -44,3 +44,16 @@ lembda1 on the other direction. 2 lembda1 values.
 
 12.31-2024:
 1. Create a synthetic rotational dataset. 
+
+1.13-2025
+1. combine the 2 synthetic datasets. 
+result: not particularly useful. 
+
+Optimal parameter selection: 
+First run: 
+lambda1: 0.1 or 0.3  
+mini-loop: 1 or 3
+
+Second run: 
+
+
